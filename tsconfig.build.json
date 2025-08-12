@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "transform": "typescript-transform-paths"
+      }
+    ],
+    "paths": {
+      "@src/*": [
+        "src/*"
+      ],
+      "@entity/*": [
+        "src/entity/*"
+      ],
+      "@constants/*": [
+        "src/constants/*"
+      ],
+      "@helpers/*": [
+        "src/helpers/*"
+      ],
+      "@validators/*": [
+        "src/validators/*"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}
