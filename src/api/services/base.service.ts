@@ -1,6 +1,7 @@
 import { INTERNAL_SERVER_ERROR } from '@src/constants/error-types'
 import {
   HTTP_STATUS_INTERNAL_SERVER_ERROR,
+  HTTP_STATUS_NO_CONTENT,
   HTTP_STATUS_OK,
 } from '@src/constants/status-codes'
 import { AppDataSource } from '@src/data-source'
@@ -64,12 +65,62 @@ export abstract class BaseService {
     }
   }
 
+  protected noContent(): ApiResponse<any> {
+    return this.success({ status: HTTP_STATUS_NO_CONTENT })
+  }
+
   protected fail(
     message: string,
     status: number = HTTP_STATUS_INTERNAL_SERVER_ERROR,
     code: string = INTERNAL_SERVER_ERROR
   ): void {
     throw new BaseError(status, message, code)
+  }
+
+  protected async getBusinessInfo(
+    select?: (keyof Business)[]
+  ): Promise<Business> {
+    const business = await this.businessRepository.findOne({
+      select,
+      where: {
+        STATE: 'A',
+      },
+    })
+
+    if (!business) {
+      throw new NotFoundError(`Empresa no encontrada.`)
+    }
+
+    return business
+  }
+
+  protected async getUser(
+    username: string,
+    relations?: (keyof User)[]
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      relations,
+      where: { USERNAME: username },
+    })
+
+    if (!user) {
+      throw new NotFoundError(`Usuario "${username}" no encontrado.`)
+    }
+
+    return user
+  }
+
+  protected async getPerson(personId: number): Promise<Person> {
+    const [person] = await this.personRepository.find({
+      relations: ['CONTACTS'],
+      where: { PERSON_ID: personId },
+    })
+
+    if (!person) {
+      throw new NotFoundError(`Persona con id '${personId}' no encontrada.`)
+    }
+
+    return person
   }
 }
 

@@ -171,6 +171,7 @@ export class PersonService extends BaseService {
             p."NAME" || ' ' || p."LAST_NAME" || ' ' || p."IDENTITY_DOCUMENT" || ' ' || u."USERNAME" || ' ' || PHONE."VALUE" || ' ' || EMAIL."VALUE" AS "FILTER",
             U."USERNAME",
             U."USER_ID",
+            R."ROLE_ID",
             R."NAME" AS "ROLE_NAME",
             EMAIL."VALUE" AS "EMAIL",
             PHONE."VALUE" AS "PHONE"

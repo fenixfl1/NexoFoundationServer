@@ -17,21 +17,23 @@ export const ORA_DATE_FORMAT = 'YYYY-MM-DD'
 
 /**
  * Generates an Oracle `TO_DATE` SQL expression to convert a string into a valid date.
+ * Automatically formats ISO date strings to 'YYYY-MM-DD'.
  *
- * @param date - The date string to be converted.
- * @param format - The date format to use (default: 'YYYY-MM-DD HH24:MI:SS').
+ * @param date - The date string to be converted (e.g., '2025-10-01T04:00:00.000Z').
+ * @param format - The date format to use (default: 'YYYY-MM-DD').
  * @returns A SQL string using `TO_DATE` with the provided date and format.
  *
  * @example
- * to_date('1964-04-26 01:00:00');
- * // Returns: "TO_DATE('1964-04-26 01:00:00', 'YYYY-MM-DD HH24:MI:SS')"
- *
- * @example
- * to_date('26-04-1964', 'DD-MM-YYYY');
- * // Returns: "TO_DATE('26-04-1964', 'DD-MM-YYYY')"
+ * to_date('2025-10-01T04:00:00.000Z');
+ * // Returns: "TO_DATE('2025-10-01', 'YYYY-MM-DD')"
  */
-export const to_date = (date: string, format: string = 'TIMESTAMP'): string =>
-  `CAST(${date} AS ${format})`
+export const to_date = (
+  placeholder: unknown,
+  format = 'YYYY-MM-DD'
+): string => {
+  // const formattedDate = new Date(date).toISOString().slice(0, 10) // Extracts 'YYYY-MM-DD'
+  return `TO_DATE($${placeholder}, '${format}')`
+}
 
 /**
  * Generates an Oracle SQL expression to normalize a text field by removing accents.
@@ -50,8 +52,12 @@ export const to_date = (date: string, format: string = 'TIMESTAMP'): string =>
  * translate('acción');
  * // Returns: "UPPER(TRANSLATE(action, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN'))"
  */
-export const translate = (field: string): string => {
-  return `UPPER(unaccent(${field}))`
+
+export const translate = (
+  field: string,
+  type: 'text' | 'date' = 'text'
+): string => {
+  return type === 'date' ? `${field}` : `UPPER(unaccent(${field}::text))`
 }
 
 /**
@@ -153,7 +159,7 @@ export async function queryRunner<T = unknown>(
 ): Promise<T[]> {
   const result = await AppDataSource.query(statement, params as never)
 
-  return result
+  return result || []
 }
 
 const getPaginationLinks = (

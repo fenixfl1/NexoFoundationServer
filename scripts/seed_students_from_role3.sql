@@ -1,0 +1,47 @@
+BEGIN;
+
+INSERT INTO PUBLIC."STUDENT" (
+  "CREATED_AT",
+  "CREATED_BY",
+  "STATE",
+  "PERSON_ID",
+  "UNIVERSITY",
+  "CAREER",
+  "SCHOLARSHIP_STATUS",
+  "ACADEMIC_AVERAGE",
+  "HOURS_REQUIRED",
+  "HOURS_COMPLETED",
+  "LAST_FOLLOW_UP",
+  "NEXT_APPOINTMENT",
+  "COHORT",
+  "CAMPUS",
+  "SCORE"
+)
+SELECT
+  NOW(),
+  NULL,
+  'A',
+  p."PERSON_ID",
+  'Pendiente de asignar',
+  'Por definir',
+  'pending',
+  0,
+  120,
+  0,
+  NOW(),
+  NULL,
+  TO_CHAR(NOW(), 'YYYY'),
+  'Santo Domingo',
+  NULL
+FROM PUBLIC."PERSON" p
+INNER JOIN PUBLIC."USER" u ON u."PERSON_ID" = p."PERSON_ID"
+INNER JOIN PUBLIC."ROLES_X_USER" rxu
+  ON rxu."USER_ID" = u."USER_ID"
+  AND rxu."ROLE_ID" = 3
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM PUBLIC."STUDENT" s
+  WHERE s."PERSON_ID" = p."PERSON_ID"
+);
+
+COMMIT;

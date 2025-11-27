@@ -1,7 +1,7 @@
 // entry.cjs
-const path = require('path')
-const fs = require('fs')
-const dotenv = require('dotenv')
+import path from 'path'
+import fs from 'fs'
+import * as dotenv from 'dotenv'
 
 // Cargar .env desde el directorio del ejecutable (no del source)
 const execDir = path.dirname(process.execPath)
@@ -17,4 +17,4 @@ if (fs.existsSync(envPath)) {
 process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
 // Ejecuta tu build compilado
-require('./dist/src/index.js')
+import './dist/src/index.js'

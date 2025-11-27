@@ -14,15 +14,15 @@ function getLocalIP() {
   return '127.0.0.1'
 }
 
-export function serverMessage() {
+export function serverMessage(time: string) {
   const message = `
 ${chalk.bold.green('Serving!')}
-- Local:   ${chalk.cyan(`http://localhost:${process.env.APP_PORT}`)}
-- Network: ${chalk.cyan(`http://${getLocalIP()}:${process.env.APP_PORT}`)}
+  - Local:   ${chalk.cyan(`http://localhost:${process.env.APP_PORT}`)}
+  - Network: ${chalk.cyan(`http://${getLocalIP()}:${process.env.APP_PORT}`)}
 
-- RabbitMQ connected!
+  - RabbitMQ connected!
 
-${chalk.gray('Copied local address to clipboard!')}
+  ${chalk.gray(`- Server ready in ${time}`)}
 `
 
   const boxenOptions: Options = {

@@ -129,9 +129,17 @@ export class RoleService extends BaseService {
     const statement = `
       SELECT 
         *
+      FROM  (
+        SELECT 
+        r.*,
+        s."NAME" || ' ' || s."LAST_NAME" AS "CREATOR"
       FROM 
-        public."ROLE"
+        public."ROLE" r
+        LEFT JOIN public."USER" u ON  u."USER_ID" = r."CREATED_BY"
+        LEFT JOIN public."PERSON" s ON s."PERSON_ID" = u."PERSON_ID"
+      ) AS subquery
       ${whereClause}
+      ORDER BY "ROLE_ID"
     `
 
     const [data = [], metadata] = await paginatedQuery({
@@ -141,9 +149,37 @@ export class RoleService extends BaseService {
     })
 
     if (!data.length) {
-      return this.success({ status: HTTP_STATUS_NO_CONTENT })
+      return this.noContent()
     }
 
     return this.success({ data, metadata })
+  }
+
+  @CatchServiceError()
+  public async getOne(roleId: number): Promise<ApiResponse> {
+    const role = await this.roleRepository.findOne({
+      where: {
+        ROLE_ID: roleId,
+      },
+    })
+
+    if (!role) {
+      throw new NotFoundError(`Rol con id '${roleId}' no encontrado.`)
+    }
+
+    const permissions = await this.permissionRoleRepository.find({
+      select: ['PERMISSION_ID'],
+      where: {
+        ROLE_ID: roleId,
+        STATE: 'A',
+      },
+    })
+
+    const data = {
+      ...role,
+      PERMISSIONS: permissions.map((perm) => perm.PERMISSION_ID),
+    }
+
+    return this.success({ data })
   }
 }

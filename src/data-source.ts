@@ -1,28 +1,13 @@
 import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { config } from 'dotenv'
-import { fileURLToPath } from 'url'
-import { loadModules } from './helpers/load-modules'
-import path from 'path'
+import * as Entities from './entity'
+import * as Migrations from './migrations'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+config({ debug: false, quiet: true })
 
-const isProduction = process.env.NODE_ENV === 'production'
-
-const entities = await loadModules(
-  path.join(__dirname, isProduction ? 'entity/**/*.js' : 'entity/**/*.ts')
-)
-const migrations = await loadModules(
-  path.join(
-    __dirname,
-    isProduction ? 'migrations/**/*.js' : 'migrations/**/*.ts'
-  )
-)
-
-config({ debug: true })
-
-console.log(process.env.NODE_ENV)
+const entities = Object.values(Entities)
+const migrations = Object.values(Migrations)
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -34,8 +19,6 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   synchronize: false,
   logging: false,
-  entities,
+  entities: entities as never,
   migrations,
 })
-
-console.log({ entities: AppDataSource.entityMetadatas })

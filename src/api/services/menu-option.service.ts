@@ -111,30 +111,28 @@ export class MenuOptionService extends BaseService {
 
     const menuOptions = await qb.getMany()
 
-    const menuMap = new Map()
+    const menuMap = new Map<string, MenuOption & { CHILDREN: MenuOption[] }>()
 
     menuOptions.forEach((menu) => {
-      const current = { ...menu, CHILDREN: [] }
-      menuMap.set(menu.MENU_OPTION_ID, current)
+      menuMap.set(menu.MENU_OPTION_ID, { ...menu, CHILDREN: [] })
     })
 
     const menuTree: MenuOption[] = []
 
     menuOptions.forEach((menu) => {
       const current = menuMap.get(menu.MENU_OPTION_ID)
+      if (!current) return
 
       const parentId = menu.PARENT?.MENU_OPTION_ID
-      menuTree.push(current)
-      // Si no tiene padre o el padre no está en el map, lo consideramos raíz
-      // if (!parentId || !menuMap.has(parentId)) {
-      //   menuTree.push(current)
-      // } else {
-      //   const parent = menuMap.get(parentId)
-      //   if (parent) {
-      //     parent.CHILDREN.push(current)
-      //     delete current.PARENT
-      //   }
-      // }
+
+      if (!parentId || !menuMap.has(parentId)) {
+        menuTree.push(current)
+      } else {
+        const parent = menuMap.get(parentId)
+        parent?.CHILDREN?.push(current)
+      }
+
+      delete current.PARENT
     })
 
     return this.success({ data: menuTree })

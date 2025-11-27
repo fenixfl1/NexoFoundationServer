@@ -3,7 +3,7 @@
     "target": "es2020", /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */ /* Enable lib replacement. */
     "experimentalDecorators": true, /* Enable experimental support for legacy experimental decorators. */
     "emitDecoratorMetadata": true, /* Emit design-type metadata for decorated declarations in source files. */
-    "module": "esnext", /* Specify what module code is generated. */
+    "module": "commonjs", /* Specify what module code is generated. */
     "rootDir": ".", /* Specify the root folder within your source files. */
     "moduleResolution": "node", /* Specify how TypeScript looks up a file from a given module specifier. */
     "baseUrl": ".", /* Specify the base directory to resolve non-relative module names. */
@@ -21,7 +21,7 @@
         "src/helpers/*"
       ],
       "@validators/*": [
-        "src/validators/*"
+        "src/api/validators/*"
       ]
     }, /* Specify a set of entries that re-map imports to additional lookup locations. */
     "outDir": "dist", /* Specify an output folder for all emitted files. */
@@ -38,15 +38,11 @@
   },
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "build"
   ],
   "include": [
     "src/**/*",
     "src/types/*",
-    "./tsconfig.json",
-    "./tsconfig.build.json",
-    "./package.json",
-    "./.env",
-    "entry.cjs"
   ]
 }

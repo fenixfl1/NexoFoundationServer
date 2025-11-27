@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { validateSchema } from '../middlewares/validator-middleware'
-import { advancedConditionSchema } from '@src/validators/advanced-condition.schema'
+import { advancedConditionSchema } from '@src/api/validators/advanced-condition.schema'
 import {
   changePasswordController,
   getPaginatedUserController,
@@ -14,7 +14,7 @@ import {
 import {
   changePasswordSchema,
   updateUserSchema,
-} from '@src/validators/user.schema'
+} from '@src/api/validators/user.schema'
 
 const userRouter = Router()
 

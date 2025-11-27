@@ -1,5 +1,5 @@
-import alias from 'esbuild-plugin-alias'
-import esbuild from 'esbuild'
+const alias = require('esbuild-plugin-alias')
+const esbuild = require('esbuild')
 
 esbuild
   .build({
@@ -8,7 +8,7 @@ esbuild
     platform: 'node',
     target: ['node18'],
     outfile: 'build/app.cjs',
-    format: 'esm',
+    format: 'cjs',
     sourcemap: false,
     external: ['bcrypt'],
     plugins: [

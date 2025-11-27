@@ -50,19 +50,25 @@ export function whereClauseBuilder(
     return `"${identifier.replace(/"/g, '')}"`
   }
 
-  const quoteField = (field: string | string[]): string => {
+  const quoteField = (
+    field: string | string[],
+    type: 'text' | 'date' = 'text'
+  ): string => {
     if (Array.isArray(field)) {
       return field
-        .map((f) => `COALESCE(${translate(quoteIdentifier(f))}, '')`)
+        .map((f) => `COALESCE(${translate(quoteIdentifier(f), type)}, '')`)
         .join(" || ' ' || ")
     }
-    return translate(quoteIdentifier(field))
+    return translate(quoteIdentifier(field), type)
   }
 
   conditions.forEach((condition) => {
     const { operator, value } = condition
 
-    const fieldExpr = quoteField(condition.field)
+    const fieldExpr = quoteField(
+      condition.field,
+      isValidDate(value) ? 'date' : 'text'
+    )
 
     const suspicious = detectSQLInjection(value)
     if (suspicious?.length) {
@@ -96,8 +102,7 @@ export function whereClauseBuilder(
       case '>=':
       case '>': {
         if (
-          typeof value !== 'string' &&
-          typeof value !== 'number' &&
+          !['string', 'number'].includes(typeof value) &&
           !isValidDate(value)
         ) {
           throw new QueryValidationError(
@@ -111,15 +116,9 @@ export function whereClauseBuilder(
         }
 
         const isDate = isValidDate(sanitizeValue(value))
-        const placeholder = isDate
-          ? to_date(`$${paramIndex}`, 'DATE')
-          : `$${paramIndex}`
+        const placeholder = isDate ? to_date(paramIndex) : `$${paramIndex}`
 
-        const field = isDate
-          ? `DATE_TRUNC('day', "${condition.field}")`
-          : fieldExpr
-
-        whereClause += ` AND ${field} ${operator} ${placeholder}`
+        whereClause += ` AND ${fieldExpr} ${operator} ${placeholder}`
         values.push(
           sanitizeValue(typeof value === 'string' ? value.toUpperCase() : value)
         )
@@ -175,26 +174,48 @@ export function whereClauseBuilder(
           )
         }
 
-        const [start, end] = value.map((v) => sanitizeValue(v))
-        const isDate = isValidDate(start) && isValidDate(end)
+        const [startRaw, endRaw] = value
+        const start = sanitizeValue(startRaw)
+        const end = sanitizeValue(endRaw)
 
-        const fromExpr = isDate
-          ? to_date(`$${paramIndex}`, 'DATE')
-          : `$${paramIndex}`
-        values.push(typeof start === 'string' ? start.toUpperCase() : start)
+        const startIsDate = isValidDate(start)
+        const endIsDate = isValidDate(end)
+
+        const isDateRange = startIsDate && endIsDate
+
+        // Detecta si es ISO con tiempo (YYYY-MM-DDTHH:mm:ss.SSSZ)
+        const isISO = (v: unknown) =>
+          typeof v === 'string' && /\d{4}-\d{2}-\d{2}T/.test(v)
+
+        const castFrom = isDateRange
+          ? isISO(start)
+            ? '::timestamptz'
+            : '::date'
+          : ''
+        const castTo = isDateRange
+          ? isISO(end)
+            ? '::timestamptz'
+            : '::date'
+          : ''
+
+        const fromExpr = `$${paramIndex}${castFrom}`
+        // Si es fecha, NO conviertas a uppercase
+        values.push(
+          isDateRange
+            ? start
+            : typeof start === 'string'
+            ? start.toUpperCase()
+            : start
+        )
         paramIndex++
 
-        const toExpr = isDate
-          ? to_date(`$${paramIndex}`, 'DATE')
-          : `$${paramIndex}`
-        values.push(typeof end === 'string' ? end.toUpperCase() : end)
+        const toExpr = `$${paramIndex}${castTo}`
+        values.push(
+          isDateRange ? end : typeof end === 'string' ? end.toUpperCase() : end
+        )
         paramIndex++
 
-        const field = isDate
-          ? ` DATE_TRUNC('day', "${condition.field}")`
-          : fieldExpr
-
-        whereClause += ` AND ${field} BETWEEN ${fromExpr} AND ${toExpr}`
+        whereClause += ` AND ${fieldExpr} BETWEEN ${fromExpr} AND ${toExpr}`
         break
       }
 

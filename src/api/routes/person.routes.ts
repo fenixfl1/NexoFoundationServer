@@ -5,13 +5,13 @@ import {
   getPersonController,
   getPersonPaginationController,
 } from '../controllers/person.controller'
-import { createPersonSchema } from '@src/validators/person.schema'
+import { createPersonSchema } from '@src/api/validators/person.schema'
 import {
   PATH_CREATE_UPDATE_PERSON,
   PATH_GET_PERSON,
   PATH_GET_PERSON_PAGINATION,
 } from '@src/constants/routes'
-import { advancedConditionSchema } from '@src/validators/advanced-condition.schema'
+import { advancedConditionSchema } from '@src/api/validators/advanced-condition.schema'
 
 const personRouter = Router()
 

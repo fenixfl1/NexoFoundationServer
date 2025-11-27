@@ -49,3 +49,18 @@ export const getRolePaginationController = async (
     next(error)
   }
 }
+
+export const getOneRoleController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { roleId } = req.params
+    const result = await roleService.getOne(Number(roleId))
+
+    sendResponse(res, result)
+  } catch (error) {
+    next(error)
+  }
+}

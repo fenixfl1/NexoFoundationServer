@@ -9,13 +9,13 @@ import {
 import {
   createMenuOptionsSchema,
   updateMenuOptionsSchema,
-} from '@src/validators/menu-option.schema'
+} from '@src/api/validators/menu-option.schema'
 import {
   PATH_CREATE_MENU_OPTION,
   PATH_GET_MENU_OPTION_WITH_PERMISSIONS,
   PATH_GET_USER_MENU_OPTIONS,
 } from '@src/constants/routes'
-import { advancedConditionSchema } from '@src/validators/advanced-condition.schema'
+import { advancedConditionSchema } from '@src/api/validators/advanced-condition.schema'
 
 const menuOptionRouter = Router()
 

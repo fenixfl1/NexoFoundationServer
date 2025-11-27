@@ -1,5 +1,7 @@
+// import '@helpers/generate-index'
 import express from 'express'
 import cors from 'cors'
+import http from 'http'
 import cookieParser from 'cookie-parser'
 import bodyParser from 'body-parser'
 import { AppDataSource } from './data-source'
@@ -7,7 +9,8 @@ import { serverMessage } from '@helpers/server-message'
 import routes from './api/routes'
 import { errorHandler } from './api/middlewares/error.middleware'
 import { startConsumer } from './api/services/email/email-consumer.service'
-import '@helpers/generate-index'
+
+const start = performance.now()
 
 const corsOptions = {
   origin: '*',
@@ -28,15 +31,15 @@ async function init() {
 
     await AppDataSource.initialize()
 
-    await startConsumer()
+    const server = http.createServer(app)
 
-    app.listen(process.env.APP_PORT)
+    server.listen(process.env.APP_PORT)
 
-    serverMessage()
+    serverMessage(`${(performance.now() - start).toFixed(2)} ms`)
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(' 💥 Something went wrong: ', error)
   }
 }
 
-init()
+init().then(async () => await startConsumer())

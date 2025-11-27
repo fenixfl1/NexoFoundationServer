@@ -20,24 +20,18 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --watch src --exec ts-node -r tsconfig-paths/register src/index.ts",
-    "start": "node -r tsconfig-paths/register dist/src/index.js",
-    "prebuild": "node --loader ts-node/esm scripts/build.ts",
-    "postbuild": "node --loader ts-node/esm scripts/postbuild.ts",
-    "build:ts": "tsc -p tsconfig.build.json",
-    "build:aliases": "tsc-alias -p tsconfig.build.json",
-    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "dev": "nodemon --watch src --exec ts-node --transpile-only -r tsconfig-paths/register src/index.ts",
+    "start:prod": "node -r tsconfig-paths/register dist/index.js",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json && tsc-alias",
     "lint": "eslint src/**/*.{ts,tsx}",
     "format": "prettier --write './src/**/*.{ts,tsx,js,json}'",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration": "npx typeorm-ts-node-commonjs migration:generate -d ./src/data-source.ts ./src/migrations/migration",
     "migration:create": "typeorm migration:create ./src/migrations/PostRefactoring",
-    "migration:run": "npx typeorm-ts-node-commonjs migration:run -d ./src/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/data-source.ts",
     "migration:fake": "npx typeorm-ts-node-commonjs migration:run -d ./src/data-source.ts --fake",
-    "migration:revert": "npx typeorm-ts-node-commonjs migration:revert -d ./src/data-source.ts",
-    "pkg": "pkg --targets node18-win-x64 --output build/app.exe -d",
-    "esbuild": "node build.js",
-    "esbuild:start": "node build/app.cjs"
+    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts"
   },
   "author": "",
   "license": "ISC",
@@ -84,6 +78,7 @@
     "globals": "^16.3.0",
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.36.0"
   }
