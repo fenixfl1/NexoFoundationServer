@@ -7,7 +7,8 @@ import {
 import { BaseService, CatchServiceError } from './base.service'
 import { Contact, ContactType, ContactUsage } from '@src/entity/Contact'
 import { Reference } from '@src/entity/Reference'
-import { Repository } from 'typeorm'
+import { Student } from '@src/entity/Student'
+import { EntityManager, Repository } from 'typeorm'
 import { generatePassword } from '@src/helpers/generate-password'
 import { publishEmailToQueue } from './email/email-producer.service'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
@@ -18,6 +19,20 @@ import { queryBuilder } from '../../helpers/query-builder'
 import { NotFoundError } from '@src/errors/http.error'
 import { Person } from '@src/entity/Person'
 
+interface StudentPayload {
+  UNIVERSITY: string
+  CAREER: string
+  SCHOLARSHIP_STATUS: Student['SCHOLARSHIP_STATUS']
+  ACADEMIC_AVERAGE?: number
+  HOURS_REQUIRED?: number
+  HOURS_COMPLETED?: number
+  LAST_FOLLOW_UP?: string
+  NEXT_APPOINTMENT?: string
+  COHORT?: string | null
+  CAMPUS?: string | null
+  SCORE?: number | null
+}
+
 interface CreatePersonPayload {
   PASSWORD: string
   USERNAME: string
@@ -27,32 +42,49 @@ interface CreatePersonPayload {
   BIRTH_DATE: string
   IDENTITY_DOCUMENT: string
   ROLE_ID: number
-  REFERENCES: {
-    NOMBRE: string
-    RELATIONSHIP: string
-    PHONE: string
-    EMAIL: string
-    ADDRESS: string
-    NOTES: string
-  }[]
+  REFERENCES: ReferencePayload[]
   CONTACTS: {
     TYPE: ContactType
     USAGE: ContactUsage
     VALUE: string
     IS_PRIMARY: boolean
   }[]
+  STUDENT?: StudentPayload
 }
+
+interface UpdatePersonPayload
+  extends Omit<Person, 'CONTACTS' | 'REFERENCES' | 'USER'> {
+  ROLE_ID: number
+}
+
+interface ReferencePayload {
+  FULL_NAME: string
+  RELATIONSHIP: string
+  PHONE: string
+  EMAIL?: string
+  ADDRESS?: string
+  NOTES?: string
+}
+
+interface ReferenceUpdatePayload extends Partial<ReferencePayload> {
+  REFERENCE_ID: number
+  PERSON_ID?: number
+}
+
+const STUDENT_ROLE_ID = 3
 
 export class PersonService extends BaseService {
   private referenceRepository: Repository<Reference>
   private contactRepository: Repository<Contact>
   private userRoleRepository: Repository<UserRoles>
+  private studentRepository: Repository<Student>
 
   constructor() {
     super()
     this.contactRepository = this.dataSource.getRepository(Contact)
     this.referenceRepository = this.dataSource.getRepository(Reference)
     this.userRoleRepository = this.dataSource.getRepository(UserRoles)
+    this.studentRepository = this.dataSource.getRepository(Student)
   }
 
   @CatchServiceError()
@@ -61,14 +93,20 @@ export class PersonService extends BaseService {
     session: SessionInfo
   ): Promise<ApiResponse> {
     return this.dataSource.transaction(async (manager) => {
-      const { USERNAME, PASSWORD, ROLE_ID, REFERENCES, CONTACTS, ...resProps } =
-        payload
-      const references: Reference[] = []
+      const {
+        USERNAME,
+        PASSWORD,
+        ROLE_ID,
+        REFERENCES = [],
+        CONTACTS,
+        STUDENT,
+        ...resProps
+      } = payload
       const contacts: Contact[] = []
 
       const common = {
         STATE: 'A',
-        CREATE_AT: new Date(),
+        CREATED_AT: new Date(),
         CREATED_BY: session?.userId,
       }
 
@@ -79,18 +117,15 @@ export class PersonService extends BaseService {
 
       const person = await manager.save(personData)
 
-      if (REFERENCES?.length) {
-        for (const ref of REFERENCES) {
-          references.push(
-            this.referenceRepository.create({
+      const student =
+        ROLE_ID === STUDENT_ROLE_ID && STUDENT
+          ? this.studentRepository.create({
               PERSON: person,
               PERSON_ID: person.PERSON_ID,
               ...common,
-              ...ref,
+              ...STUDENT,
             })
-          )
-        }
-      }
+          : undefined
 
       if (CONTACTS?.length) {
         for (const contact of CONTACTS) {
@@ -105,8 +140,16 @@ export class PersonService extends BaseService {
         }
       }
 
-      await manager.save(references)
+      await this.createReferences(
+        manager,
+        person,
+        REFERENCES,
+        common.CREATED_BY
+      )
       await manager.save(contacts)
+      if (student) {
+        await manager.save(student)
+      }
 
       if (USERNAME) {
         const { password, hash } = await generatePassword(PASSWORD)
@@ -155,6 +198,122 @@ export class PersonService extends BaseService {
   }
 
   @CatchServiceError()
+  async update(payload: UpdatePersonPayload): Promise<ApiResponse<Person>> {
+    const { PERSON_ID, ROLE_ID, ...restProps } = payload
+
+    await this.dataSource.transaction(async (manager) => {
+      const person = await this.getPerson(PERSON_ID, { USER: true })
+      const user = await this.getUser(person.PERSON_ID, {
+        searchKey: 'PERSON_ID',
+        throwError: false,
+      })
+
+      await manager.update(Person, { PERSON_ID }, { ...restProps, ROLE_ID })
+
+      if (ROLE_ID && person.ROLE_ID !== ROLE_ID && user) {
+        const [userRole] = await this.userRolesRepository.find({
+          where: {
+            ROLE_ID,
+            USER_ID: user.USER_ID,
+            STATE: 'A',
+          },
+        })
+
+        await manager.update(UserRoles, userRole, { ROLE_ID })
+      }
+    })
+
+    const data = await this.get_person('PERSON_ID', PERSON_ID)
+
+    return this.success({
+      data,
+      message: `Persona con id '${PERSON_ID}' actualizada exitosamente`,
+    })
+  }
+
+  private async createReferences(
+    manager: EntityManager,
+    person: Person,
+    references: ReferencePayload[] = [],
+    createdBy?: number
+  ): Promise<Reference[]> {
+    if (!references?.length) return []
+
+    const entities = references.map((ref) =>
+      this.referenceRepository.create({
+        PERSON: person,
+        PERSON_ID: person.PERSON_ID,
+        STATE: 'A',
+        CREATED_BY: createdBy,
+        ...ref,
+      })
+    )
+
+    return manager.save(Reference, entities)
+  }
+
+  @CatchServiceError()
+  async addReferences(
+    payload: ReferencePayload & { PERSON_ID: number },
+    session: SessionInfo
+  ): Promise<ApiResponse<Reference[]>> {
+    const { PERSON_ID } = payload
+    const person = await this.getPerson(PERSON_ID)
+
+    const created = await this.dataSource.transaction((manager) =>
+      this.createReferences(manager, person, [payload], session?.userId)
+    )
+
+    return this.success({
+      data: created,
+      message: `Referencias agregadas a la persona ${PERSON_ID} exitosamente`,
+    })
+  }
+
+  @CatchServiceError()
+  async updateReference(
+    payload: ReferenceUpdatePayload,
+    session: SessionInfo
+  ): Promise<ApiResponse<Reference>> {
+    const { REFERENCE_ID, PERSON_ID, ...rest } = payload
+
+    const reference = await this.referenceRepository.findOne({
+      where: { REFERENCE_ID },
+    })
+
+    if (!reference) {
+      throw new NotFoundError(
+        `Referencia con id '${REFERENCE_ID}' no encontrada.`
+      )
+    }
+
+    if (PERSON_ID && reference.PERSON_ID !== PERSON_ID) {
+      throw new NotFoundError(
+        `La referencia '${REFERENCE_ID}' no pertenece a la persona '${PERSON_ID}'.`
+      )
+    }
+
+    const updateData = Object.fromEntries(
+      Object.entries(rest).filter(([, value]) => value !== undefined)
+    )
+
+    await this.dataSource.transaction(async (manager) => {
+      if (Object.keys(updateData).length) {
+        await manager.update(Reference, { REFERENCE_ID }, updateData)
+      }
+    })
+
+    const updated = await this.referenceRepository.findOne({
+      where: { REFERENCE_ID },
+    })
+
+    return this.success({
+      data: updated,
+      message: `Referencia con id '${REFERENCE_ID}' actualizada exitosamente`,
+    })
+  }
+
+  @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
     pagination: Pagination
@@ -179,9 +338,7 @@ export class PersonService extends BaseService {
             PUBLIC."PERSON" P
             LEFT JOIN PUBLIC."USER" U ON P."PERSON_ID" = U."PERSON_ID"
             AND U."STATE" = 'A'
-            LEFT JOIN PUBLIC."ROLES_X_USER" UXR ON U."USER_ID" = UXR."USER_ID"
-            AND UXR."STATE" = 'A'
-            LEFT JOIN PUBLIC."ROLE" R ON R."ROLE_ID" = UXR."ROLE_ID"
+            LEFT JOIN PUBLIC."ROLE" R ON R."ROLE_ID" = P."ROLE_ID"
             AND R."STATE" = 'A'
             LEFT JOIN PUBLIC."CONTACT" EMAIL ON P."PERSON_ID" = EMAIL."PERSON_ID"
             AND EMAIL."IS_PRIMARY" = TRUE
@@ -207,7 +364,23 @@ export class PersonService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_person(username: string): Promise<ApiResponse> {
+  async getPersonById(personId: number): Promise<ApiResponse<Person>> {
+    const data = await this.get_person('PERSON_ID', personId)
+
+    return this.success({ data })
+  }
+
+  @CatchServiceError()
+  async getPersonByUsername(username: string): Promise<ApiResponse<Person>> {
+    const data = await this.get_person('USERNAME', username)
+
+    return this.success({ data })
+  }
+
+  private async get_person(
+    identifier: 'USERNAME' | 'PERSON_ID' | 'USER_ID',
+    value: string | number
+  ): Promise<Person> {
     const statement = `
       SELECT
         *
@@ -219,6 +392,7 @@ export class PersonService extends BaseService {
             U."AVATAR",
             U."USER_ID",
             R."NAME" AS "ROLE_NAME",
+            R."ROLE_ID",
             EMAIL."VALUE" AS "EMAIL",
             PHONE."VALUE" AS "PHONE"
           FROM
@@ -237,13 +411,13 @@ export class PersonService extends BaseService {
             AND PHONE."TYPE" = 'phone'
         ) AS SUBQUERY
       WHERE
-        "USERNAME" = $1
+        "${identifier}" = $1
     `
 
-    const [person] = await queryRunner<Person>(statement, [username])
+    const [person] = await queryRunner<Person>(statement, [value])
 
     if (!person) {
-      throw new NotFoundError(`El usuario '${username}' no fue encontrado.`)
+      throw new NotFoundError(`Persona no encontrado.`)
     }
 
     const references = await this.referenceRepository.find({
@@ -258,12 +432,24 @@ export class PersonService extends BaseService {
       },
     })
 
+    const student = await this.studentRepository.findOne({
+      where: {
+        PERSON_ID: person.PERSON_ID,
+      },
+    })
+
     const data = {
       ...person,
       REFERENCES: references ?? [],
       CONTACTS: contacts ?? [],
+      STUDENT: student ?? {},
     }
 
-    return this.success({ data })
+    return data
   }
+
+  private async createReference(
+    payload: Reference[],
+    manager?: EntityManager
+  ) {}
 }

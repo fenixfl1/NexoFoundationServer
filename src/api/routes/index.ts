@@ -7,6 +7,9 @@ import permissionRouter from './permission.routes'
 import personRouter from './person.routes'
 import userRouter from './user.routes'
 import studentRouter from './student.routes'
+import catalogRouter from './catalog.routes'
+import parameterRouter from './parameter.routes'
+import requestRouter from './request.routes'
 
 const publicRoutes: Router[] = [authRouter]
 const privateRoutes: Router[] = [
@@ -16,6 +19,9 @@ const privateRoutes: Router[] = [
   personRouter,
   userRouter,
   studentRouter,
+  catalogRouter,
+  parameterRouter,
+  requestRouter,
 ]
 
 const publicRouter = Router()

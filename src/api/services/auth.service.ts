@@ -61,6 +61,7 @@ export class AuthService extends BaseService {
       data: {
         username,
         userId: user.USER_ID,
+        roleId: user.PERSON.ROLE_ID,
         name: `${user.PERSON.NAME} ${user.PERSON.LAST_NAME}`,
         avatar: user.AVATAR,
         sessionCookie: {

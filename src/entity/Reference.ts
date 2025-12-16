@@ -1,5 +1,4 @@
 import {
-  BaseEntity,
   Column,
   Entity,
   JoinColumn,
@@ -7,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm'
 import { Person } from './Person'
+import { BaseEntity } from './BaseEntity'
 
 @Entity('REFERENCE')
 export class Reference extends BaseEntity {

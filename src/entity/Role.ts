@@ -11,6 +11,7 @@ import {
 import { BaseEntity } from './BaseEntity'
 import { MenuOption } from './MenuOption'
 import { UserRoles } from './RolesUser'
+import { Person } from './Person'
 
 @Entity('ROLE')
 export class Role extends BaseEntity {
@@ -22,6 +23,9 @@ export class Role extends BaseEntity {
 
   @Column({ type: 'varchar', length: 250 })
   DESCRIPTION: string
+
+  @OneToMany(() => Person, (person) => person.ROLE)
+  PEOPLE: Person[]
 
   @OneToMany(() => UserRoles, (rolesXUser) => rolesXUser.ROLE)
   ROLES_X_USER: UserRoles[]

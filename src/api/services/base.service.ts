@@ -5,6 +5,7 @@ import {
   HTTP_STATUS_OK,
 } from '@src/constants/status-codes'
 import { AppDataSource } from '@src/data-source'
+import { UserRoles } from '@src/entity'
 import { Business } from '@src/entity/Business'
 import { Person } from '@src/entity/Person'
 import { User } from '@src/entity/User'
@@ -12,7 +13,12 @@ import { BaseError } from '@src/errors/base.error'
 import { NotFoundError } from '@src/errors/http.error'
 import { parseOracleError } from '@src/errors/ParseOracleErrors'
 import { ApiResponse, Metadata } from '@src/types/api.types'
-import { DataSource, FindOptionsWhere, Repository } from 'typeorm'
+import {
+  DataSource,
+  FindOptionsRelations,
+  FindOptionsWhere,
+  Repository,
+} from 'typeorm'
 
 interface SuccessResponse<T> {
   data?: T
@@ -21,17 +27,25 @@ interface SuccessResponse<T> {
   status?: number
 }
 
+interface GetUserOptions {
+  relations?: FindOptionsRelations<User>
+  searchKey?: keyof User
+  throwError?: boolean
+}
+
 export abstract class BaseService {
   protected dataSource: DataSource
   protected businessRepository: Repository<Business>
   protected personRepository: Repository<Person>
   protected userRepository: Repository<User>
+  protected userRolesRepository: Repository<UserRoles>
 
   constructor() {
     this.dataSource = AppDataSource
     this.businessRepository = this.dataSource.getRepository(Business)
     this.personRepository = this.dataSource.getRepository(Person)
     this.userRepository = this.dataSource.getRepository(User)
+    this.userRolesRepository = this.dataSource.getRepository(UserRoles)
   }
 
   protected async getStudents(user_id: number): Promise<Person[]> {
@@ -95,24 +109,33 @@ export abstract class BaseService {
   }
 
   protected async getUser(
-    username: string,
-    relations?: (keyof User)[]
+    value: string | number,
+    options?: GetUserOptions
   ): Promise<User> {
+    const {
+      relations = null,
+      searchKey = 'USERNAME',
+      throwError = true,
+    } = options
+
     const user = await this.userRepository.findOne({
       relations,
-      where: { USERNAME: username },
+      where: { [searchKey]: value },
     })
 
-    if (!user) {
-      throw new NotFoundError(`Usuario "${username}" no encontrado.`)
+    if (!user && throwError) {
+      throw new NotFoundError(`Usuario "${value}" no encontrado.`)
     }
 
     return user
   }
 
-  protected async getPerson(personId: number): Promise<Person> {
-    const [person] = await this.personRepository.find({
-      relations: ['CONTACTS'],
+  protected async getPerson(
+    personId: number,
+    relations: FindOptionsRelations<Person> = { CONTACTS: true }
+  ): Promise<Person> {
+    const person = await this.personRepository.findOne({
+      relations,
       where: { PERSON_ID: personId },
     })
 
@@ -136,7 +159,7 @@ export abstract class BaseService {
  *
  * @example
  * ```typescript
- * @CatchServiceError()
+ * CatchServiceError()
  * async someServiceMethod() {
  *   // Your method logic
  * }

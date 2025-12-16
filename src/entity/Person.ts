@@ -2,6 +2,7 @@ import {
   Column,
   Entity,
   JoinColumn,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -10,6 +11,7 @@ import { BaseEntity } from './BaseEntity'
 import { Reference } from './Reference'
 import { User } from './User'
 import { Contact } from './Contact'
+import { Role } from './Role'
 
 @Entity('PERSON')
 export class Person extends BaseEntity {
@@ -30,6 +32,13 @@ export class Person extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: false })
   IDENTITY_DOCUMENT: string
+
+  @Column({ type: 'integer', nullable: true })
+  ROLE_ID: number
+
+  @ManyToOne(() => Role, (role) => role.PEOPLE)
+  @JoinColumn({ name: 'ROLE_ID' })
+  ROLE: Role
 
   @OneToMany(() => Reference, (ref) => ref.PERSON)
   REFERENCES: Reference[]

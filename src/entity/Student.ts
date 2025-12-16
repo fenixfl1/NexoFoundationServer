@@ -9,11 +9,11 @@ import { BaseEntity } from './BaseEntity'
 import { Person } from './Person'
 
 export enum ScholarshipStatus {
-  PENDING = 'pending',
-  ACTIVE = 'active',
-  SUSPENDED = 'suspended',
-  COMPLETED = 'completed',
-  GRADUATED = 'graduated',
+  PENDING = 'P',
+  ACTIVE = 'A',
+  SUSPENDED = 'S',
+  COMPLETED = 'C',
+  GRADUATED = 'G',
 }
 
 @Entity('STUDENT')
