@@ -43,10 +43,10 @@ SELECT
   END AS REQUEST_TYPE,
   (
     CASE (sp.row_num % 4)
-      WHEN 0 THEN 'in_review'
-      WHEN 1 THEN 'approved'
-      WHEN 2 THEN 'scheduled'
-      ELSE 'new'
+      WHEN 0 THEN 'R'
+      WHEN 1 THEN 'A'
+      WHEN 2 THEN 'C'
+      ELSE 'P'
     END
   )::"public"."REQUEST_status_enum" AS STATUS,
   CASE (sp.row_num % 3)

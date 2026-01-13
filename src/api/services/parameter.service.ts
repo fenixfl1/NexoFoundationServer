@@ -100,13 +100,26 @@ export class ParameterService extends BaseService {
 
     const statement = `
       SELECT
-        p.*,
-        mo."NAME" AS "MENU_OPTION_NAME"
-      FROM PUBLIC."PARAMETER" p
-      LEFT JOIN PUBLIC."MENU_OPTION" mo
-        ON mo."MENU_OPTION_ID" = p."MENU_OPTION_ID"
+        *
+      FROM
+        (
+          SELECT
+            P."PARAMETER_ID",
+            P."PARAMETER",
+            P."DESCRIPTION",
+            P."VALUE",
+            P."MENU_OPTION_ID",
+            P."CREATED_AT",
+            P."CREATED_BY",
+            p."STATE",
+            MO."NAME" AS "MENU_OPTION_NAME"
+          FROM
+            PUBLIC."PARAMETER" P
+            LEFT JOIN PUBLIC."MENU_OPTION" MO ON MO."MENU_OPTION_ID" = P."MENU_OPTION_ID"
+        )
       ${whereClause}
-      ORDER BY p."PARAMETER_ID"
+      ORDER BY
+        "PARAMETER_ID"
     `
 
     const [data = [], metadata] = await paginatedQuery({
@@ -119,7 +132,22 @@ export class ParameterService extends BaseService {
       return this.success({ status: HTTP_STATUS_NO_CONTENT })
     }
 
-    return this.success({ data, metadata })
+    const summaryStatement = `
+      SELECT
+        summary_subquery."STATE",
+        COUNT(*)::INTEGER AS "COUNT"
+      FROM (${statement}) AS summary_subquery
+      GROUP BY summary_subquery."STATE"
+    `
+
+    const summaryData = await this.dataSource.query(summaryStatement, values)
+
+    const summary = summaryData.reduce((acc, { STATE, COUNT }) => {
+      acc[STATE] = COUNT
+      return acc
+    }, {})
+
+    return this.success({ data, metadata: { ...metadata, summary } })
   }
 
   @CatchServiceError()

@@ -9,6 +9,7 @@ import { serverMessage } from '@helpers/server-message'
 import routes from './api/routes'
 import { errorHandler } from './api/middlewares/error.middleware'
 import { startConsumer } from './api/services/email/email-consumer.service'
+import { startNotificationDispatcher } from './jobs/notification-dispatcher'
 
 const start = performance.now()
 
@@ -42,4 +43,7 @@ async function init() {
   }
 }
 
-init().then(async () => await startConsumer())
+init().then(async () => {
+  await startConsumer()
+  startNotificationDispatcher()
+})

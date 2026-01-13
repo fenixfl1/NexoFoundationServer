@@ -73,6 +73,30 @@ export class StudentService extends BaseService {
 
     await this.studentRepository.save(student)
 
+    await this.dataSource.query(
+      `
+        INSERT INTO "STUDENT_REQUIREMENT" (
+          "CREATED_AT",
+          "CREATED_BY",
+          "STATE",
+          "STUDENT_ID",
+          "REQUIREMENT_ID",
+          "STATUS"
+        )
+        SELECT
+          NOW(),
+          $1,
+          'A',
+          $2,
+          r."REQUIREMENT_ID",
+          'P'
+        FROM PUBLIC."REQUIREMENT" r
+        WHERE r."STATE" = 'A'
+        ON CONFLICT ("STUDENT_ID", "REQUIREMENT_ID") DO NOTHING
+      `,
+      [session.userId, student.STUDENT_ID]
+    )
+
     return this.success({
       message: 'Becario registrado correctamente.',
       data: student,
@@ -129,6 +153,7 @@ export class StudentService extends BaseService {
           p."NAME",
           p."LAST_NAME",
           p."IDENTITY_DOCUMENT",
+          p."STATE",
           COALESCE(email."VALUE", '') AS "CONTACT_EMAIL",
           COALESCE(phone."VALUE", '') AS "CONTACT_PHONE",
           (
@@ -151,6 +176,7 @@ export class StudentService extends BaseService {
           AND phone."TYPE" = 'phone'
       ) AS SUBQUERY
       ${whereClause}
+      ORDER BY "STUDENT_ID"
     `
 
     const [data, metadata] = await paginatedQuery<Student>({
@@ -163,7 +189,31 @@ export class StudentService extends BaseService {
       return this.success({ status: HTTP_STATUS_NO_CONTENT })
     }
 
-    return this.success({ data, metadata })
+    const statusCountStatement = `
+      SELECT
+        status_subquery."SCHOLARSHIP_STATUS",
+        COUNT(*)::INTEGER AS "COUNT"
+      FROM (${statement}) AS status_subquery
+      GROUP BY status_subquery."SCHOLARSHIP_STATUS"
+    `
+
+    const statusCounts = await queryRunner<{
+      SCHOLARSHIP_STATUS: Student['SCHOLARSHIP_STATUS']
+      COUNT: number
+    }>(statusCountStatement, values)
+
+    const statusSummary = statusCounts.reduce<Record<string, number>>(
+      (acc, { SCHOLARSHIP_STATUS, COUNT }) => {
+        acc[SCHOLARSHIP_STATUS] = COUNT
+        return acc
+      },
+      {}
+    )
+
+    return this.success({
+      data,
+      metadata: { ...metadata, summary: statusSummary },
+    })
   }
 
   @CatchServiceError()

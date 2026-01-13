@@ -211,15 +211,31 @@ export class PersonService extends BaseService {
       await manager.update(Person, { PERSON_ID }, { ...restProps, ROLE_ID })
 
       if (ROLE_ID && person.ROLE_ID !== ROLE_ID && user) {
-        const [userRole] = await this.userRolesRepository.find({
+        const currentRole = await this.userRolesRepository.findOne({
           where: {
-            ROLE_ID,
             USER_ID: user.USER_ID,
-            STATE: 'A',
+            ROLE_ID: person.ROLE_ID,
           },
         })
 
-        await manager.update(UserRoles, userRole, { ROLE_ID })
+        if (currentRole) {
+          await manager.update(
+            UserRoles,
+            {
+              USER_ID: user.USER_ID,
+              ROLE_ID: person.ROLE_ID,
+            },
+            { ROLE_ID }
+          )
+        } else {
+          const newUserRole = this.userRolesRepository.create({
+            USER_ID: user.USER_ID,
+            ROLE_ID,
+            STATE: 'A',
+          })
+
+          await manager.save(UserRoles, newUserRole)
+        }
       }
     })
 
@@ -393,6 +409,7 @@ export class PersonService extends BaseService {
             U."USER_ID",
             R."NAME" AS "ROLE_NAME",
             R."ROLE_ID",
+            S."STUDENT_ID",
             EMAIL."VALUE" AS "EMAIL",
             PHONE."VALUE" AS "PHONE"
           FROM
@@ -409,6 +426,7 @@ export class PersonService extends BaseService {
             LEFT JOIN PUBLIC."CONTACT" PHONE ON P."PERSON_ID" = PHONE."PERSON_ID"
             AND PHONE."IS_PRIMARY" = TRUE
             AND PHONE."TYPE" = 'phone'
+			      LEFT JOIN public."STUDENT" S on S."PERSON_ID" = p."PERSON_ID"
         ) AS SUBQUERY
       WHERE
         "${identifier}" = $1

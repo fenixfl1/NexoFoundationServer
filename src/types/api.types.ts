@@ -8,6 +8,8 @@ export type PaginationLinks = {
 }
 
 export interface Metadata {
+  [key: string]: unknown
+  summary?: Record<string, string | number>
   pagination: {
     currentPage: number
     totalPages: number

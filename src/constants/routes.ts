@@ -41,3 +41,56 @@ export const PATH_GET_CATALOG = '/catalog/:catalogId'
 export const PATH_CREATE_UPDATE_PARAMETER = '/parameter'
 export const PATH_GET_PARAMETER_PAGINATION = '/parameter/pagination'
 export const PATH_GET_ACTIVITY_PARAMETER = '/parameter/:activityId'
+
+export const PATH_CREATE_UPDATE_NOTIFICATION_TEMPLATE =
+  '/notification_templates'
+export const PATH_GET_NOTIFICATION_TEMPLATE_PAGINATION =
+  '/notification_templates/pagination'
+export const PATH_GET_NOTIFICATION_TEMPLATE = '/notification_templates/:id'
+
+export const PATH_CREATE_UPDATE_NOTIFICATION = '/notifications'
+export const PATH_GET_NOTIFICATION_PAGINATION = '/notifications/pagination'
+export const PATH_GET_NOTIFICATION = '/notifications/:id'
+
+export const PATH_CREATE_UPDATE_APPOINTMENT = '/appointments'
+export const PATH_GET_APPOINTMENT_PAGINATION = '/appointments/pagination'
+export const PATH_GET_APPOINTMENT = '/appointments/:id'
+
+export const PATH_CREATE_UPDATE_FOLLOW_UP = '/follow_ups'
+export const PATH_GET_FOLLOW_UP_PAGINATION = '/follow_ups/pagination'
+export const PATH_GET_FOLLOW_UP = '/follow_ups/:id'
+
+export const PATH_CREATE_UPDATE_STUDENT_DOCUMENT = '/student_documents'
+export const PATH_GET_STUDENT_DOCUMENT_PAGINATION =
+  '/student_documents/pagination'
+export const PATH_GET_STUDENT_DOCUMENT = '/student_documents/:id'
+
+export const PATH_CREATE_UPDATE_SCHOLARSHIP = '/scholarships'
+export const PATH_GET_SCHOLARSHIP_PAGINATION = '/scholarships/pagination'
+export const PATH_GET_SCHOLARSHIP = '/scholarships/:id'
+
+export const PATH_CREATE_UPDATE_DISBURSEMENT = '/disbursements'
+export const PATH_GET_DISBURSEMENT_PAGINATION = '/disbursements/pagination'
+export const PATH_GET_DISBURSEMENT = '/disbursements/:id'
+
+export const PATH_CREATE_UPDATE_SPONSOR = '/sponsors'
+export const PATH_GET_SPONSOR_PAGINATION = '/sponsors/pagination'
+export const PATH_GET_SPONSOR = '/sponsors/:id'
+
+export const PATH_CREATE_UPDATE_PLEDGE = '/pledges'
+export const PATH_GET_PLEDGE_PAGINATION = '/pledges/pagination'
+export const PATH_GET_PLEDGE = '/pledges/:id'
+
+export const PATH_CREATE_UPDATE_SCHOLARSHIP_COST = '/scholarship_costs'
+export const PATH_GET_SCHOLARSHIP_COST_PAGINATION =
+  '/scholarship_costs/pagination'
+export const PATH_GET_SCHOLARSHIP_COST = '/scholarship_costs/:id'
+
+export const PATH_CREATE_UPDATE_REQUIREMENT = '/requirements'
+export const PATH_GET_REQUIREMENT_PAGINATION = '/requirements/pagination'
+export const PATH_GET_REQUIREMENT = '/requirements/:id'
+
+export const PATH_CREATE_UPDATE_STUDENT_REQUIREMENT = '/student_requirements'
+export const PATH_GET_STUDENT_REQUIREMENT_PAGINATION =
+  '/student_requirements/pagination'
+export const PATH_GET_STUDENT_REQUIREMENT = '/student_requirements/:id'

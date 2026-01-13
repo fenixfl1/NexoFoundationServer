@@ -147,12 +147,14 @@ export class MenuOptionService extends BaseService {
       .createQueryBuilder('mo')
       .leftJoinAndSelect('mo.PERMISSIONS', 'p')
       .leftJoinAndSelect('p.ACTION', 'ac')
+      .leftJoinAndSelect('mo.PARENT', 'parent')
 
     const { qb } = queryBuilder(optionPermsQueryBuilder, payload)
 
     const { data: result, metadata } = await paginate(qb, pagination)
 
-    const data: MenuOption[] = []
+    const optionMap = new Map<string, MenuOption & { CHILDREN: MenuOption[] }>()
+
     for (const record of result) {
       delete record.ICON
       record.PERMISSIONS = record.PERMISSIONS.map(
@@ -164,9 +166,22 @@ export class MenuOptionService extends BaseService {
             ACTION_NAME: perm.ACTION.NAME,
           } as never)
       )
-
-      data.push(record)
+      optionMap.set(record.MENU_OPTION_ID, { ...record, CHILDREN: [] })
     }
+
+    const data: MenuOption[] = []
+
+    optionMap.forEach((option) => {
+      const parentId = option.PARENT?.MENU_OPTION_ID
+
+      if (parentId && optionMap.has(parentId)) {
+        optionMap.get(parentId)?.CHILDREN.push(option)
+      } else {
+        data.push(option)
+      }
+
+      delete option.PARENT
+    })
 
     return this.success({ data, metadata })
   }

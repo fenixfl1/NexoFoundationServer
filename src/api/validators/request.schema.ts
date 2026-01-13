@@ -7,7 +7,7 @@ export const createRequestSchema = Joi.object({
   REQUEST_TYPE: Joi.string().max(100).required(),
   STATUS: Joi.string()
     .valid(...Object.values(RequestStatus))
-    .default(RequestStatus.NEW),
+    .default(RequestStatus.PENDING),
   ASSIGNED_COORDINATOR: Joi.string().max(150).optional().allow(null, ''),
   NEXT_APPOINTMENT: Joi.date().iso().optional().allow(null),
   COHORT: Joi.string().max(100).optional().allow(null, ''),

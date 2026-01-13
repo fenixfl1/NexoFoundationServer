@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #2f2f2f;
+        background-color: #f6f6f6;
+        padding: 20px;
+      }
+      .container {
+        background-color: #ffffff;
+        padding: 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        max-width: 600px;
+        margin: auto;
+      }
+      h2 {
+        color: #0b7fab;
+        margin-bottom: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>{{title}}</h2>
+      <div>
+        {{{content}}}
+      </div>
+    </div>
+  </body>
+</html>

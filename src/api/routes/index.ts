@@ -10,6 +10,18 @@ import studentRouter from './student.routes'
 import catalogRouter from './catalog.routes'
 import parameterRouter from './parameter.routes'
 import requestRouter from './request.routes'
+import notificationTemplateRouter from './notification-template.routes'
+import notificationRouter from './notification.routes'
+import appointmentRouter from './appointment.routes'
+import followUpRouter from './follow-up.routes'
+import studentDocumentRouter from './student-document.routes'
+import requirementRouter from './requirement.routes'
+import studentRequirementRouter from './student-requirement.routes'
+import scholarshipRouter from './scholarship.routes'
+import disbursementRouter from './disbursement.routes'
+import sponsorRouter from './sponsor.routes'
+import pledgeRouter from './pledge.routes'
+import scholarshipCostRouter from './scholarship-cost-history.routes'
 
 const publicRoutes: Router[] = [authRouter]
 const privateRoutes: Router[] = [
@@ -22,6 +34,18 @@ const privateRoutes: Router[] = [
   catalogRouter,
   parameterRouter,
   requestRouter,
+  notificationTemplateRouter,
+  notificationRouter,
+  appointmentRouter,
+  followUpRouter,
+  studentDocumentRouter,
+  requirementRouter,
+  studentRequirementRouter,
+  scholarshipRouter,
+  disbursementRouter,
+  sponsorRouter,
+  pledgeRouter,
+  scholarshipCostRouter,
 ]
 
 const publicRouter = Router()

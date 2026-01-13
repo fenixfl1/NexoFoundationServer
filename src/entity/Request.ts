@@ -10,11 +10,11 @@ import { Person } from './Person'
 import { Student } from './Student'
 
 export enum RequestStatus {
-  NEW = 'new',
-  IN_REVIEW = 'in_review',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  SCHEDULED = 'scheduled',
+  PENDING = 'P',
+  IN_REVIEW = 'R',
+  APPROVED = 'A',
+  REJECTED = 'D',
+  SCHEDULED = 'C',
 }
 
 @Entity('REQUEST')
@@ -42,7 +42,7 @@ export class Request extends BaseEntity {
   @Column({
     type: 'enum',
     enum: RequestStatus,
-    default: RequestStatus.NEW,
+    default: RequestStatus.PENDING,
   })
   STATUS: RequestStatus
 

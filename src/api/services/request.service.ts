@@ -6,12 +6,14 @@ import {
 } from '@src/types/api.types'
 import { BaseService, CatchServiceError } from './base.service'
 import { Repository } from 'typeorm'
-import { Request } from '@src/entity/Request'
+import { Request, RequestStatus } from '@src/entity/Request'
 import { NotFoundError } from '@src/errors/http.error'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
 import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
 import { Student } from '@src/entity/Student'
+import { NotificationService } from './notification.service'
+import { NotificationChannel } from '@src/entity/NotificationTemplate'
 
 interface CreateRequestPayload {
   PERSON_ID: number
@@ -31,11 +33,13 @@ interface UpdateRequestPayload extends Partial<CreateRequestPayload> {
 export class RequestService extends BaseService {
   private requestRepository: Repository<Request>
   private studentRepository: Repository<Student>
+  private notificationService: NotificationService
 
   constructor() {
     super()
     this.requestRepository = this.dataSource.getRepository(Request)
     this.studentRepository = this.dataSource.getRepository(Student)
+    this.notificationService = new NotificationService()
   }
 
   @CatchServiceError()
@@ -106,10 +110,15 @@ export class RequestService extends BaseService {
       }
     }
 
-    await this.requestRepository.update(
-      { REQUEST_ID },
-      { ...rest, STUDENT_ID }
-    )
+    await this.requestRepository.update({ REQUEST_ID }, { ...rest, STUDENT_ID })
+
+    if (rest.STATUS && rest.STATUS !== request.STATUS) {
+      await this.triggerStatusNotification(
+        request.PERSON_ID,
+        rest.STATUS,
+        request.REQUEST_ID
+      )
+    }
 
     return this.success({
       message: 'Solicitud actualizada.',
@@ -165,6 +174,7 @@ export class RequestService extends BaseService {
           AND phone."TYPE" = 'phone'
       ) AS SUBQUERY
       ${whereClause}
+      ORDER BY "REQUEST_ID"
     `
 
     const [data, metadata] = await paginatedQuery<Request>({
@@ -173,11 +183,43 @@ export class RequestService extends BaseService {
       pagination,
     })
 
-    if (!data.length) {
-      return this.success({ status: HTTP_STATUS_NO_CONTENT })
+    const statusCountStatement = `
+      SELECT
+        status_subquery."STATUS",
+        COUNT(*)::INTEGER AS "COUNT"
+      FROM (${statement}) AS status_subquery
+      GROUP BY status_subquery."STATUS"
+    `
+
+    const statusCounts = await queryRunner<{
+      STATUS: Request['STATUS']
+      COUNT: number
+    }>(statusCountStatement, values)
+
+    const statusSummary = Object.values(RequestStatus).reduce<
+      Record<string, number>
+    >((acc, status) => {
+      acc[status] = 0
+      return acc
+    }, {})
+
+    statusCounts.forEach(({ STATUS, COUNT }) => {
+      statusSummary[STATUS] = COUNT
+    })
+
+    const metadataWithSummary = {
+      ...metadata,
+      summary: statusSummary,
     }
 
-    return this.success({ data, metadata })
+    if (!data.length) {
+      return this.success({
+        status: HTTP_STATUS_NO_CONTENT,
+        metadata: metadataWithSummary,
+      })
+    }
+
+    return this.success({ data, metadata: metadataWithSummary })
   }
 
   @CatchServiceError()
@@ -215,5 +257,36 @@ export class RequestService extends BaseService {
     }
 
     return this.success({ data: request })
+  }
+  private async triggerStatusNotification(
+    personId: number,
+    status: Request['STATUS'],
+    requestId: number
+  ) {
+    const person = await this.personRepository.findOne({
+      relations: ['CONTACTS'],
+      where: { PERSON_ID: personId },
+    })
+
+    if (!person) return
+
+    const emailContact = person.CONTACTS?.find(
+      (contact) => contact.TYPE === 'email' && contact.IS_PRIMARY
+    )
+
+    if (!emailContact) return
+
+    await this.notificationService.createFromTemplateKey({
+      templateKey: 'REQUEST_STATUS_UPDATE',
+      recipient: emailContact.VALUE,
+      payload: {
+        name: `${person.NAME} ${person.LAST_NAME}`,
+        status_label: status,
+        request_id: requestId,
+      },
+      channel: NotificationChannel.EMAIL,
+      relatedEntity: 'REQUEST',
+      relatedId: requestId,
+    })
   }
 }
