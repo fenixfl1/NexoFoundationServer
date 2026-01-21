@@ -11,17 +11,12 @@ export class FinancialSeeds1776000000000 implements MigrationInterface {
         "STATE",
         "NAME",
         "TYPE",
-        "TAX_ID",
-        "CONTACT_NAME",
-        "CONTACT_EMAIL",
-        "CONTACT_PHONE",
-        "ADDRESS",
-        "NOTES"
+        "TAX_ID"
       )
       VALUES
-        (NOW(), NULL, 'A', 'Fundación Horizonte', 'foundation', 'RNC-001122', 'María Paredes', 'maria.paredes@example.com', '809-555-1001', 'Av. Central 123, SD', 'Patrocinador principal'),
-        (NOW(), NULL, 'A', 'Grupo Caribe', 'company', 'RNC-009988', 'Luis Gómez', 'luis.gomez@example.com', '809-555-1002', 'Calle Norte 45, SD', 'Apoyo anual'),
-        (NOW(), NULL, 'A', 'Ana Morales', 'person', '001-1234567-8', 'Ana Morales', 'ana.morales@example.com', '809-555-1003', 'Santiago', 'Donante individual')
+        (NOW(), NULL, 'A', 'Fundación Horizonte', 'foundation', 'RNC-001122'),
+        (NOW(), NULL, 'A', 'Grupo Caribe', 'company', 'RNC-009988'),
+        (NOW(), NULL, 'A', 'Ana Morales', 'person', '001-1234567-8')
       ON CONFLICT DO NOTHING
     `)
 

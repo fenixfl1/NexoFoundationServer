@@ -1,0 +1,28 @@
+BEGIN;
+
+INSERT INTO PUBLIC."SPONSOR" (
+  "CREATED_AT",
+  "CREATED_BY",
+  "STATE",
+  "PERSON_ID",
+  "NAME",
+  "TYPE",
+  "TAX_ID"
+)
+SELECT
+  NOW(),
+  NULL,
+  'A',
+  p."PERSON_ID",
+  TRIM(p."NAME" || ' ' || p."LAST_NAME"),
+  'person',
+  p."IDENTITY_DOCUMENT"
+FROM PUBLIC."PERSON" p
+WHERE p."ROLE_ID" = 2
+  AND NOT EXISTS (
+    SELECT 1
+    FROM PUBLIC."SPONSOR" s
+    WHERE s."PERSON_ID" = p."PERSON_ID"
+  );
+
+COMMIT;

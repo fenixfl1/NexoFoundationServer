@@ -1,10 +1,24 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm'
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm'
 import { BaseEntity } from './BaseEntity'
+import { Person } from './Person'
 
 @Entity('SPONSOR')
 export class Sponsor extends BaseEntity {
   @PrimaryGeneratedColumn()
   SPONSOR_ID: number
+
+  @Column({ type: 'integer', nullable: true })
+  PERSON_ID?: number | null
+
+  @ManyToOne(() => Person)
+  @JoinColumn({ name: 'PERSON_ID' })
+  PERSON?: Person | null
 
   @Column({ type: 'varchar', length: 150 })
   NAME: string
@@ -14,19 +28,4 @@ export class Sponsor extends BaseEntity {
 
   @Column({ type: 'varchar', length: 30, nullable: true })
   TAX_ID?: string | null
-
-  @Column({ type: 'varchar', length: 150, nullable: true })
-  CONTACT_NAME?: string | null
-
-  @Column({ type: 'varchar', length: 150, nullable: true })
-  CONTACT_EMAIL?: string | null
-
-  @Column({ type: 'varchar', length: 30, nullable: true })
-  CONTACT_PHONE?: string | null
-
-  @Column({ type: 'text', nullable: true })
-  ADDRESS?: string | null
-
-  @Column({ type: 'text', nullable: true })
-  NOTES?: string | null
 }
