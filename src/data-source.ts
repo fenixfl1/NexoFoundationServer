@@ -3,11 +3,13 @@ import { DataSource } from 'typeorm'
 import { config } from 'dotenv'
 import * as Entities from './entity'
 import * as Migrations from './migrations'
+import * as Subscribers from './subscribers'
 
 config({ debug: false, quiet: true })
 
 const entities = Object.values(Entities)
 const migrations = Object.values(Migrations)
+const subscribers = Object.values(Subscribers)
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -21,4 +23,5 @@ export const AppDataSource = new DataSource({
   logging: false,
   entities: entities as never,
   migrations,
+  subscribers,
 })

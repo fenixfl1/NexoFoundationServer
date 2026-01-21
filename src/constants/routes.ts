@@ -94,3 +94,6 @@ export const PATH_CREATE_UPDATE_STUDENT_REQUIREMENT = '/student_requirements'
 export const PATH_GET_STUDENT_REQUIREMENT_PAGINATION =
   '/student_requirements/pagination'
 export const PATH_GET_STUDENT_REQUIREMENT = '/student_requirements/:id'
+
+export const PATH_GET_DASHBOARD_METRICS = '/dashboard/metrics'
+export const PATH_GET_DASHBOARD_ACTIVITY = '/dashboard/activity'

@@ -1,7 +1,7 @@
 import Joi from 'joi'
 
 export const createStudentDocumentSchema = Joi.object({
-  STUDENT_ID: Joi.number().integer().required(),
+  STUDENT_ID: Joi.number().integer().optional(),
   DOCUMENT_TYPE: Joi.string().max(100).required(),
   FILE_NAME: Joi.string().max(255).required(),
   MIME_TYPE: Joi.string().max(100).required(),

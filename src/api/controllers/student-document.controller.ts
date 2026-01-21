@@ -27,7 +27,10 @@ export const updateStudentDocumentController = async (
   next: NextFunction
 ) => {
   try {
-    const result = await studentDocumentService.update(req.body)
+    const result = await studentDocumentService.update(
+      req.body,
+      req['sessionInfo']
+    )
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -42,7 +45,8 @@ export const getStudentDocumentPaginationController = async (
   try {
     const result = await studentDocumentService.get_pagination(
       req.body,
-      extractPagination(req.query)
+      extractPagination(req.query),
+      req['sessionInfo']
     )
     sendResponse(res, result)
   } catch (error) {
@@ -57,7 +61,10 @@ export const getStudentDocumentController = async (
 ) => {
   try {
     const { id } = req.params
-    const result = await studentDocumentService.get_document(Number(id))
+    const result = await studentDocumentService.get_document(
+      Number(id),
+      req['sessionInfo']
+    )
     sendResponse(res, result)
   } catch (error) {
     next(error)

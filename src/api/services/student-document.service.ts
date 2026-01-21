@@ -16,7 +16,7 @@ import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
 
 interface CreateStudentDocumentPayload {
-  STUDENT_ID: number
+  STUDENT_ID?: number
   DOCUMENT_TYPE: string
   FILE_NAME: string
   MIME_TYPE: string
@@ -31,6 +31,8 @@ interface UpdateStudentDocumentPayload
   extends Partial<CreateStudentDocumentPayload> {
   DOCUMENT_ID: number
 }
+
+const ROLE_STUDENT_ID = 3
 
 export class StudentDocumentService extends BaseService {
   private documentRepository: Repository<StudentDocument>
@@ -52,10 +54,17 @@ export class StudentDocumentService extends BaseService {
     payload: CreateStudentDocumentPayload,
     session: SessionInfo
   ): Promise<ApiResponse> {
-    await this.ensureStudent(payload.STUDENT_ID)
+    const sessionStudentId = await this.getStudentIdForSession(session)
+    const targetStudentId = sessionStudentId ?? payload.STUDENT_ID
+    if (!targetStudentId) {
+      this.fail('STUDENT_ID es requerido para registrar documentos.')
+    }
+
+    await this.ensureStudent(targetStudentId)
 
     const document = this.documentRepository.create({
       ...payload,
+      STUDENT_ID: targetStudentId,
       SIGNED_BASE64: payload.SIGNED_BASE64 ?? null,
       SIGNED_AT: payload.SIGNED_AT ? new Date(payload.SIGNED_AT) : null,
       STATE: payload.STATE ?? 'A',
@@ -65,7 +74,7 @@ export class StudentDocumentService extends BaseService {
     await this.documentRepository.save(document)
 
     await this.markRequirementReceived(
-      payload.STUDENT_ID,
+      targetStudentId,
       payload.DOCUMENT_TYPE
     )
 
@@ -76,11 +85,17 @@ export class StudentDocumentService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdateStudentDocumentPayload): Promise<ApiResponse> {
+  async update(
+    payload: UpdateStudentDocumentPayload,
+    session: SessionInfo
+  ): Promise<ApiResponse> {
     const { DOCUMENT_ID, ...rest } = payload
 
+    const sessionStudentId = await this.getStudentIdForSession(session)
     const existing = await this.documentRepository.findOne({
-      where: { DOCUMENT_ID },
+      where: sessionStudentId
+        ? { DOCUMENT_ID, STUDENT_ID: sessionStudentId }
+        : { DOCUMENT_ID },
     })
 
     if (!existing) {
@@ -93,10 +108,13 @@ export class StudentDocumentService extends BaseService {
       await this.ensureStudent(rest.STUDENT_ID)
     }
 
+    const targetStudentId = sessionStudentId ?? rest.STUDENT_ID ?? existing.STUDENT_ID
+
     await this.documentRepository.update(
       { DOCUMENT_ID },
       {
         ...rest,
+        STUDENT_ID: targetStudentId,
         SIGNED_AT:
           rest.SIGNED_AT !== undefined
             ? rest.SIGNED_AT
@@ -106,7 +124,7 @@ export class StudentDocumentService extends BaseService {
       }
     )
 
-    const studentId = rest.STUDENT_ID ?? existing.STUDENT_ID
+    const studentId = targetStudentId
     const documentType = rest.DOCUMENT_TYPE ?? existing.DOCUMENT_TYPE
 
     await this.markRequirementReceived(studentId, documentType)
@@ -117,9 +135,21 @@ export class StudentDocumentService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session: SessionInfo
   ): Promise<ApiResponse> {
-    const { values, whereClause } = whereClauseBuilder(payload)
+    const sessionStudentId = await this.getStudentIdForSession(session)
+    const conditions = Array.isArray(payload) ? [...payload] : []
+
+    if (sessionStudentId) {
+      conditions.push({
+        field: 'STUDENT_ID',
+        operator: '=',
+        value: sessionStudentId,
+      })
+    }
+
+    const { values, whereClause } = whereClauseBuilder(conditions)
 
     const statement = `
       SELECT
@@ -163,7 +193,20 @@ export class StudentDocumentService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_document(documentId: number): Promise<ApiResponse> {
+  async get_document(
+    documentId: number,
+    session: SessionInfo
+  ): Promise<ApiResponse> {
+    const sessionStudentId = await this.getStudentIdForSession(session)
+    const params: Array<string | number> = [documentId]
+
+    const studentFilter = sessionStudentId
+      ? 'AND d."STUDENT_ID" = $2'
+      : ''
+    if (sessionStudentId) {
+      params.push(sessionStudentId)
+    }
+
     const statement = `
       SELECT
         d.*,
@@ -177,11 +220,10 @@ export class StudentDocumentService extends BaseService {
       INNER JOIN PUBLIC."STUDENT" s ON s."STUDENT_ID" = d."STUDENT_ID"
       INNER JOIN PUBLIC."PERSON" p ON p."PERSON_ID" = s."PERSON_ID"
       WHERE d."DOCUMENT_ID" = $1
+      ${studentFilter}
     `
 
-    const [document] = await queryRunner<StudentDocument>(statement, [
-      documentId,
-    ])
+    const [document] = await queryRunner<StudentDocument>(statement, params)
 
     if (!document) {
       throw new NotFoundError(
@@ -240,5 +282,33 @@ export class StudentDocumentService extends BaseService {
         { STATUS: 'R' }
       )
     }
+  }
+
+  private async getStudentIdForSession(
+    session: SessionInfo
+  ): Promise<number | null> {
+    const isStudent = await this.userRolesRepository.findOne({
+      where: { USER_ID: session.userId, ROLE_ID: ROLE_STUDENT_ID },
+    })
+
+    if (!isStudent) return null
+
+    const user = await this.userRepository.findOne({
+      where: { USER_ID: session.userId },
+    })
+
+    if (!user) {
+      throw new NotFoundError('Usuario no encontrado.')
+    }
+
+    const student = await this.studentRepository.findOne({
+      where: { PERSON_ID: user.PERSON_ID },
+    })
+
+    if (!student) {
+      throw new NotFoundError('Estudiante no encontrado.')
+    }
+
+    return student.STUDENT_ID
   }
 }
