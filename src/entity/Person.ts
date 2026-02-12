@@ -21,17 +21,23 @@ export class Person extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   NAME: string
 
-  @Column({ type: 'varchar', nullable: false })
+  @Column({ type: 'varchar', nullable: true })
   LAST_NAME: string
 
-  @Column({ type: 'char', nullable: false })
+  @Column({ type: 'char', nullable: true })
   GENDER: string
 
   @Column({ type: 'date', nullable: false })
   BIRTH_DATE: Date
 
+  @Column({ type: 'varchar', nullable: true })
+  DOCUMENT_TYPE: string
+
   @Column({ type: 'varchar', nullable: false })
   IDENTITY_DOCUMENT: string
+
+  @Column({ type: 'varchar', nullable: true })
+  PERSON_TYPE: string
 
   @Column({ type: 'integer', nullable: true })
   ROLE_ID: number

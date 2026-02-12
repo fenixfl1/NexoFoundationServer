@@ -23,6 +23,8 @@ import sponsorRouter from './sponsor.routes'
 import pledgeRouter from './pledge.routes'
 import scholarshipCostRouter from './scholarship-cost-history.routes'
 import dashboardRouter from './dashboard.routes'
+import termRouter from './term.routes'
+import activityRouter from './activity.routes'
 
 const publicRoutes: Router[] = [authRouter]
 const privateRoutes: Router[] = [
@@ -48,6 +50,8 @@ const privateRoutes: Router[] = [
   pledgeRouter,
   scholarshipCostRouter,
   dashboardRouter,
+  termRouter,
+  activityRouter,
 ]
 
 const publicRouter = Router()

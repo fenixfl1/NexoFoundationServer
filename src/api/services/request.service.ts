@@ -34,6 +34,7 @@ export class RequestService extends BaseService {
   private requestRepository: Repository<Request>
   private studentRepository: Repository<Student>
   private notificationService: NotificationService
+  private readonly STUDENT_ROLE_ID = 3
 
   constructor() {
     super()
@@ -128,9 +129,21 @@ export class RequestService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session?: SessionInfo
   ): Promise<ApiResponse> {
-    const { values, whereClause } = whereClauseBuilder(payload)
+    const scopedPayload = [...(payload ?? [])]
+    const studentPersonId = await this.getLoggedStudentPersonId(session)
+
+    if (studentPersonId) {
+      scopedPayload.push({
+        field: 'PERSON_ID',
+        operator: '=',
+        value: studentPersonId,
+      })
+    }
+
+    const { values, whereClause } = whereClauseBuilder(scopedPayload)
 
     const statement = `
       SELECT
@@ -223,7 +236,7 @@ export class RequestService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_request(requestId: number): Promise<ApiResponse> {
+  async get_request(requestId: number, session?: SessionInfo): Promise<ApiResponse> {
     const statement = `
       SELECT
         r.*,
@@ -251,6 +264,13 @@ export class RequestService extends BaseService {
     const [request] = await queryRunner<Request>(statement, [requestId])
 
     if (!request) {
+      throw new NotFoundError(
+        `La solicitud con código '${requestId}' no fue encontrada.`
+      )
+    }
+
+    const studentPersonId = await this.getLoggedStudentPersonId(session)
+    if (studentPersonId && request.PERSON_ID !== studentPersonId) {
       throw new NotFoundError(
         `La solicitud con código '${requestId}' no fue encontrada.`
       )
@@ -288,5 +308,31 @@ export class RequestService extends BaseService {
       relatedEntity: 'REQUEST',
       relatedId: requestId,
     })
+  }
+
+  private async getLoggedStudentPersonId(
+    session?: SessionInfo
+  ): Promise<number | null> {
+    if (!session?.userId) return null
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!studentRole) return null
+
+    const user = await this.userRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        STATE: 'A',
+      },
+      select: ['USER_ID', 'PERSON_ID'],
+    })
+
+    return user?.PERSON_ID ?? null
   }
 }

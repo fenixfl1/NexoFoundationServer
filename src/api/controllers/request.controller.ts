@@ -39,7 +39,8 @@ export const getRequestPaginationController = async (
   try {
     const result = await requestService.get_pagination(
       req.body,
-      extractPagination(req.query)
+      extractPagination(req.query),
+      req['sessionInfo']
     )
 
     sendResponse(res, result)
@@ -55,7 +56,7 @@ export const getRequestController = async (
 ) => {
   try {
     const { id } = req.params
-    const result = await requestService.get_request(Number(id))
+    const result = await requestService.get_request(Number(id), req['sessionInfo'])
 
     sendResponse(res, result)
   } catch (error) {

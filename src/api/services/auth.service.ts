@@ -19,12 +19,10 @@ interface LoginPayload {
 }
 
 export class AuthService extends BaseService {
-  private contactRepository: Repository<Contact>
   private resetPasswordRepository: Repository<PasswordResetToken>
 
   constructor() {
     super()
-    this.contactRepository = this.dataSource.getRepository(Contact)
     this.resetPasswordRepository =
       this.dataSource.getRepository(PasswordResetToken)
   }
@@ -60,6 +58,7 @@ export class AuthService extends BaseService {
     return this.success({
       data: {
         username,
+        personId: user.PERSON.PERSON_ID,
         userId: user.USER_ID,
         roleId: user.PERSON.ROLE_ID,
         name: `${user.PERSON.NAME} ${user.PERSON.LAST_NAME}`,

@@ -30,12 +30,30 @@ export const createPersonSchema = Joi.object({
   USERNAME: Joi.string().optional(),
   PASSWORD: Joi.string().optional(),
   NAME: Joi.string().required(),
-  LAST_NAME: Joi.string().required(),
-  GENDER: Joi.string().valid('M', 'F').required(),
+  LAST_NAME: Joi.string().optional(),
+  GENDER: Joi.string().valid('M', 'F').optional(),
   BIRTH_DATE: Joi.date().iso().required(),
+  DOCUMENT_TYPE: Joi.string().max(50).optional().allow('', null),
   IDENTITY_DOCUMENT: Joi.string().required(),
   ROLE_ID: Joi.number().integer().required(),
+  INCOMPLETE: Joi.boolean().optional().default(false),
   REFERENCES: Joi.array().items(referenceSchema).optional().default([]),
+  PERSON_TYPE: Joi.string().required(),
+  DOCUMENTS: Joi.array()
+    .items(
+      Joi.object({
+        DOCUMENT_TYPE: Joi.string().max(100).required(),
+        FILE_NAME: Joi.string().max(255).required(),
+        MIME_TYPE: Joi.string().max(100).required(),
+        FILE_BASE64: Joi.string().required(),
+        SIGNED_BASE64: Joi.string().allow('', null).optional(),
+        SIGNED_AT: Joi.date().allow(null).optional(),
+        DESCRIPTION: Joi.string().allow('', null).optional(),
+        STATE: Joi.string().valid('A', 'I').optional(),
+      })
+    )
+    .optional()
+    .default([]),
   CONTACTS: Joi.array()
     .items(
       Joi.object({
@@ -65,8 +83,11 @@ export const updatePersonSchema = Joi.object({
   LAST_NAME: Joi.string().optional(),
   GENDER: Joi.string().valid('M', 'F').optional(),
   BIRTH_DATE: Joi.date().iso().optional(),
+  DOCUMENT_TYPE: Joi.string().max(50).optional().allow('', null),
   IDENTITY_DOCUMENT: Joi.string().optional(),
   ROLE_ID: Joi.number().integer().optional(),
+  STATE: Joi.string().valid('A', 'I').optional(),
+  PERSON_TYPE: Joi.string().optional(),
 })
 
 export const createPersonReferencesSchema = Joi.object({

@@ -7,7 +7,7 @@ export const PATH_LOGIN = '/login'
 
 export const PATH_REQUEST_RESET_PASSWORD = '/request_password_reset'
 export const PATH_RESET_PASSWORD = '/reset_password'
-export const PATH_CREATE_MENU_OPTION = '/menu_options'
+export const PATH_CREATE_UPDATE_MENU_OPTION = '/menu_options'
 export const PATH_GET_MENU_OPTION_WITH_PERMISSIONS =
   '/menu_options/get_with_permission'
 export const PATH_GET_USER_MENU_OPTIONS = '/menu_options/:username'
@@ -97,3 +97,17 @@ export const PATH_GET_STUDENT_REQUIREMENT = '/student_requirements/:id'
 
 export const PATH_GET_DASHBOARD_METRICS = '/dashboard/metrics'
 export const PATH_GET_DASHBOARD_ACTIVITY = '/dashboard/activity'
+
+// Calificaciones / Índice académico
+export const PATH_CREATE_UPDATE_TERM = '/grades/terms'
+export const PATH_GET_TERM = '/grades/terms/:id'
+export const PATH_GET_TERM_PAGINATION = '/grades/terms/pagination'
+export const PATH_GET_TERM_BY_STUDENT = '/grades/terms/student/:studentId'
+
+// Actividades / voluntariado
+export const PATH_CREATE_UPDATE_ACTIVITY = '/activities'
+export const PATH_GET_ACTIVITY = '/activities/:id'
+export const PATH_GET_ACTIVITY_PAGINATION = '/activities/pagination'
+export const PATH_ACTIVITY_ENROLL = '/activities/enroll'
+export const PATH_ACTIVITY_PARTICIPANT_UPDATE =
+  '/activities/participants/status'

@@ -8,6 +8,7 @@ import { BaseService, CatchServiceError } from './base.service'
 import { Contact, ContactType, ContactUsage } from '@src/entity/Contact'
 import { Reference } from '@src/entity/Reference'
 import { Student } from '@src/entity/Student'
+import { StudentDocument } from '@src/entity/StudentDocument'
 import { EntityManager, Repository } from 'typeorm'
 import { generatePassword } from '@src/helpers/generate-password'
 import { publishEmailToQueue } from './email/email-producer.service'
@@ -18,6 +19,7 @@ import { UserRoles } from '@src/entity/RolesUser'
 import { queryBuilder } from '../../helpers/query-builder'
 import { NotFoundError } from '@src/errors/http.error'
 import { Person } from '@src/entity/Person'
+import { Sponsor } from '@src/entity'
 
 interface StudentPayload {
   UNIVERSITY: string
@@ -40,9 +42,11 @@ interface CreatePersonPayload {
   LAST_NAME: string
   GENDER: string
   BIRTH_DATE: string
+  DOCUMENT_TYPE?: string | null
   IDENTITY_DOCUMENT: string
   ROLE_ID: number
   REFERENCES: ReferencePayload[]
+  PERSON_TYPE: string
   CONTACTS: {
     TYPE: ContactType
     USAGE: ContactUsage
@@ -50,10 +54,22 @@ interface CreatePersonPayload {
     IS_PRIMARY: boolean
   }[]
   STUDENT?: StudentPayload
+  DOCUMENTS?: {
+    DOCUMENT_TYPE: string
+    FILE_NAME: string
+    MIME_TYPE: string
+    FILE_BASE64: string
+    SIGNED_BASE64?: string | null
+    SIGNED_AT?: string | null
+    DESCRIPTION?: string | null
+    STATE?: string
+  }[]
 }
 
-interface UpdatePersonPayload
-  extends Omit<Person, 'CONTACTS' | 'REFERENCES' | 'USER'> {
+interface UpdatePersonPayload extends Omit<
+  Person,
+  'CONTACTS' | 'REFERENCES' | 'USER'
+> {
   ROLE_ID: number
 }
 
@@ -72,12 +88,15 @@ interface ReferenceUpdatePayload extends Partial<ReferencePayload> {
 }
 
 const STUDENT_ROLE_ID = 3
+const SPONSOR_ROLE_ID = 2
 
 export class PersonService extends BaseService {
   private referenceRepository: Repository<Reference>
   private contactRepository: Repository<Contact>
   private userRoleRepository: Repository<UserRoles>
   private studentRepository: Repository<Student>
+  private studentDocumentRepository: Repository<StudentDocument>
+  private sponsorRepository: Repository<Sponsor>
 
   constructor() {
     super()
@@ -85,6 +104,9 @@ export class PersonService extends BaseService {
     this.referenceRepository = this.dataSource.getRepository(Reference)
     this.userRoleRepository = this.dataSource.getRepository(UserRoles)
     this.studentRepository = this.dataSource.getRepository(Student)
+    this.sponsorRepository = this.dataSource.getRepository(Sponsor)
+    this.studentDocumentRepository =
+      this.dataSource.getRepository(StudentDocument)
   }
 
   @CatchServiceError()
@@ -100,12 +122,13 @@ export class PersonService extends BaseService {
         REFERENCES = [],
         CONTACTS,
         STUDENT,
+        DOCUMENTS = [],
+        PERSON_TYPE,
         ...resProps
       } = payload
       const contacts: Contact[] = []
 
       const common = {
-        STATE: 'A',
         CREATED_AT: new Date(),
         CREATED_BY: session?.userId,
       }
@@ -113,6 +136,8 @@ export class PersonService extends BaseService {
       const personData = this.personRepository.create({
         ...common,
         ...resProps,
+        ROLE_ID,
+        PERSON_TYPE,
       })
 
       const person = await manager.save(personData)
@@ -149,6 +174,37 @@ export class PersonService extends BaseService {
       await manager.save(contacts)
       if (student) {
         await manager.save(student)
+
+        if (Array.isArray(DOCUMENTS) && DOCUMENTS.length) {
+          const docsEntities = DOCUMENTS.map((doc) =>
+            this.studentDocumentRepository.create({
+              ...doc,
+              STUDENT: student,
+              STUDENT_ID: student.STUDENT_ID,
+              CREATED_BY: common.CREATED_BY,
+              STATE: doc.STATE ?? 'A',
+            })
+          )
+          await manager.save(docsEntities)
+        }
+      }
+
+      if (ROLE_ID === SPONSOR_ROLE_ID) {
+        const sponsorName =
+          `${person.NAME} ${person.LAST_NAME ?? ''}`.trim() ||
+          person.IDENTITY_DOCUMENT
+
+        const sponsor = this.sponsorRepository.create({
+          PERSON: person,
+          PERSON_ID: person.PERSON_ID,
+          NAME: sponsorName,
+          TYPE: person.PERSON_TYPE ?? null,
+          TAX_ID: person.IDENTITY_DOCUMENT ?? null,
+          STATE: 'A',
+          CREATED_BY: common.CREATED_BY,
+        })
+
+        await manager.save(sponsor)
       }
 
       if (USERNAME) {
@@ -193,7 +249,18 @@ export class PersonService extends BaseService {
         }
       }
 
-      return this.success({ message: 'Persona registrado con éxito.' })
+      const responseData: Record<string, unknown> = {
+        ...person,
+      }
+
+      if (student) {
+        responseData['STUDENT_ID'] = student.STUDENT_ID
+      }
+
+      return this.success({
+        message: 'Persona registrado con éxito.',
+        data: responseData,
+      })
     })
   }
 

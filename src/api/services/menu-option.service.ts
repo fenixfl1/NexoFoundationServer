@@ -64,7 +64,12 @@ export class MenuOptionService extends BaseService {
       )
     }
 
-    await this.menuOptionRepository.update(option, { ...restProps })
+    const result = await this.menuOptionRepository.update(
+      { MENU_OPTION_ID },
+      {
+        ...restProps,
+      }
+    )
 
     return this.success({ message: 'Opción de menú actualizada exitosamente.' })
   }
@@ -148,6 +153,7 @@ export class MenuOptionService extends BaseService {
       .leftJoinAndSelect('mo.PERMISSIONS', 'p')
       .leftJoinAndSelect('p.ACTION', 'ac')
       .leftJoinAndSelect('mo.PARENT', 'parent')
+      .orderBy('mo.ORDER', 'ASC')
 
     const { qb } = queryBuilder(optionPermsQueryBuilder, payload)
 
@@ -156,7 +162,6 @@ export class MenuOptionService extends BaseService {
     const optionMap = new Map<string, MenuOption & { CHILDREN: MenuOption[] }>()
 
     for (const record of result) {
-      delete record.ICON
       record.PERMISSIONS = record.PERMISSIONS.map(
         (perm) =>
           ({
@@ -164,7 +169,7 @@ export class MenuOptionService extends BaseService {
             DESCRIPTION: perm.DESCRIPTION,
             ACTION_ID: perm.ACTION_ID,
             ACTION_NAME: perm.ACTION.NAME,
-          } as never)
+          }) as never
       )
       optionMap.set(record.MENU_OPTION_ID, { ...record, CHILDREN: [] })
     }

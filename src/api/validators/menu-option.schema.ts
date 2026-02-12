@@ -12,7 +12,7 @@ export const createMenuOptionsSchema = Joi.object({
   ICON: Joi.string().allow('', null).optional(),
   ORDER: Joi.number().required(),
   MENU_OPTION_ID: Joi.string().optional(),
-  ESTATE: Joi.string().valid('A', 'I').optional().default('A'),
+  STATE: Joi.string().valid('A', 'I').optional().default('A'),
   PATH: Joi.string().optional().allow(null, ''),
 })
 
@@ -28,6 +28,6 @@ export const updateMenuOptionsSchema = Joi.object({
   ICON: Joi.string().optional(),
   ORDER: Joi.number().optional(),
   MENU_OPTION_ID: Joi.string().required(),
-  ESTATE: Joi.string().valid('A', 'I').optional().default('A'),
-  PATH: Joi.string().optional().allow(null, ''),
+  STATE: Joi.string().valid('A', 'I').optional(),
+  PATH: Joi.string().optional().allow(null, '').optional(),
 })
