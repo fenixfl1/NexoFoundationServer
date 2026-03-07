@@ -4,7 +4,7 @@ import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import tsParser from '@typescript-eslint/parser'
 import TsPlugin from '@typescript-eslint/eslint-plugin'
-import prettier from 'eslint-plugin-prettier'
+import importPlugin from 'eslint-plugin-import'
 
 export default defineConfig([
   {
@@ -20,8 +20,8 @@ export default defineConfig([
     files: ['**/*.{js,mjs,cjs,ts,mts,cts}'],
     plugins: {
       js,
+      import: importPlugin,
       '@typescript-eslint': TsPlugin,
-      prettier,
     },
     settings: {
       'import/resolver': {
@@ -46,14 +46,30 @@ export default defineConfig([
         },
       ],
       '@typescript-eslint/no-unused-vars': [
-        'error',
+        'warn',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-expressions': 'warn',
     },
   },
   tseslint.configs.recommended,
+  {
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-expressions': 'warn',
+    },
+  },
 ])

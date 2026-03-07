@@ -88,6 +88,20 @@ export const updatePersonSchema = Joi.object({
   ROLE_ID: Joi.number().integer().optional(),
   STATE: Joi.string().valid('A', 'I').optional(),
   PERSON_TYPE: Joi.string().optional(),
+  DOCUMENTS: Joi.array()
+    .items(
+      Joi.object({
+        DOCUMENT_TYPE: Joi.string().max(100).required(),
+        FILE_NAME: Joi.string().max(255).required(),
+        MIME_TYPE: Joi.string().max(100).required(),
+        FILE_BASE64: Joi.string().required(),
+        SIGNED_BASE64: Joi.string().allow('', null).optional(),
+        SIGNED_AT: Joi.date().allow(null).optional(),
+        DESCRIPTION: Joi.string().allow('', null).optional(),
+        STATE: Joi.string().valid('A', 'I').optional(),
+      })
+    )
+    .optional(),
 })
 
 export const createPersonReferencesSchema = Joi.object({

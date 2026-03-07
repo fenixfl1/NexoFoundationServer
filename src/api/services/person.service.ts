@@ -20,6 +20,7 @@ import { queryBuilder } from '../../helpers/query-builder'
 import { NotFoundError } from '@src/errors/http.error'
 import { Person } from '@src/entity/Person'
 import { Sponsor } from '@src/entity'
+import { Requirement } from '@src/entity/Requirement'
 
 interface StudentPayload {
   UNIVERSITY: string
@@ -67,10 +68,21 @@ interface CreatePersonPayload {
 }
 
 interface UpdatePersonPayload extends Omit<
-  Person,
+  Partial<Person>,
   'CONTACTS' | 'REFERENCES' | 'USER'
 > {
-  ROLE_ID: number
+  PERSON_ID: number
+  ROLE_ID?: number
+  DOCUMENTS?: {
+    DOCUMENT_TYPE: string
+    FILE_NAME: string
+    MIME_TYPE: string
+    FILE_BASE64: string
+    SIGNED_BASE64?: string | null
+    SIGNED_AT?: string | null
+    DESCRIPTION?: string | null
+    STATE?: string
+  }[]
 }
 
 interface ReferencePayload {
@@ -265,8 +277,11 @@ export class PersonService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdatePersonPayload): Promise<ApiResponse<Person>> {
-    const { PERSON_ID, ROLE_ID, ...restProps } = payload
+  async update(
+    payload: UpdatePersonPayload,
+    session?: SessionInfo
+  ): Promise<ApiResponse<Person>> {
+    const { PERSON_ID, ROLE_ID, DOCUMENTS, ...restProps } = payload
 
     await this.dataSource.transaction(async (manager) => {
       const person = await this.getPerson(PERSON_ID, { USER: true })
@@ -275,7 +290,14 @@ export class PersonService extends BaseService {
         throwError: false,
       })
 
-      await manager.update(Person, { PERSON_ID }, { ...restProps, ROLE_ID })
+      await manager.update(
+        Person,
+        { PERSON_ID },
+        {
+          ...restProps,
+          ...(ROLE_ID ? { ROLE_ID } : {}),
+        }
+      )
 
       if (ROLE_ID && person.ROLE_ID !== ROLE_ID && user) {
         const currentRole = await this.userRolesRepository.findOne({
@@ -304,6 +326,15 @@ export class PersonService extends BaseService {
           await manager.save(UserRoles, newUserRole)
         }
       }
+
+      if (Array.isArray(DOCUMENTS)) {
+        await this.syncStudentDocuments(
+          manager,
+          PERSON_ID,
+          DOCUMENTS,
+          session?.userId
+        )
+      }
     })
 
     const data = await this.get_person('PERSON_ID', PERSON_ID)
@@ -312,6 +343,116 @@ export class PersonService extends BaseService {
       data,
       message: `Persona con id '${PERSON_ID}' actualizada exitosamente`,
     })
+  }
+
+  private normalizeDocumentType(value?: string | null): string {
+    return String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .trim()
+  }
+
+  private async syncStudentDocuments(
+    manager: EntityManager,
+    personId: number,
+    documents: NonNullable<UpdatePersonPayload['DOCUMENTS']>,
+    createdBy?: number
+  ): Promise<void> {
+    const student = await manager.findOne(Student, {
+      where: { PERSON_ID: personId },
+    })
+
+    if (!student) {
+      throw new NotFoundError(
+        `No se encontró un estudiante asociado a la persona '${personId}'.`
+      )
+    }
+
+    const requirementRows = await manager.find(Requirement, {
+      where: { STATE: 'A' },
+    })
+
+    const requirementKeys = new Set(
+      requirementRows.flatMap((row) => [
+        this.normalizeDocumentType(row.REQUIREMENT_KEY),
+        this.normalizeDocumentType(row.NAME),
+      ])
+    )
+
+    const incoming = documents.filter(
+      (doc) =>
+        this.normalizeDocumentType(doc.DOCUMENT_TYPE) &&
+        requirementKeys.has(this.normalizeDocumentType(doc.DOCUMENT_TYPE))
+    )
+
+    const incomingKeys = new Set(
+      incoming.map((doc) => this.normalizeDocumentType(doc.DOCUMENT_TYPE))
+    )
+
+    const existingDocs = await manager.find(StudentDocument, {
+      where: { STUDENT_ID: student.STUDENT_ID },
+      order: { CREATED_AT: 'DESC' },
+    })
+
+    const docsToDeactivate = existingDocs.filter((doc) => {
+      const key = this.normalizeDocumentType(doc.DOCUMENT_TYPE)
+      return (
+        requirementKeys.has(key) && !incomingKeys.has(key) && doc.STATE === 'A'
+      )
+    })
+
+    if (docsToDeactivate.length) {
+      await manager.save(
+        docsToDeactivate.map((doc) =>
+          this.studentDocumentRepository.create({
+            ...doc,
+            STATE: 'I',
+          })
+        )
+      )
+    }
+
+    for (const doc of incoming) {
+      const key = this.normalizeDocumentType(doc.DOCUMENT_TYPE)
+
+      const existing = existingDocs.find(
+        (item) => this.normalizeDocumentType(item.DOCUMENT_TYPE) === key
+      )
+
+      if (existing) {
+        await manager.update(
+          StudentDocument,
+          { DOCUMENT_ID: existing.DOCUMENT_ID },
+          {
+            DOCUMENT_TYPE: doc.DOCUMENT_TYPE,
+            FILE_NAME: doc.FILE_NAME,
+            MIME_TYPE: doc.MIME_TYPE,
+            FILE_BASE64: doc.FILE_BASE64,
+            SIGNED_BASE64: doc.SIGNED_BASE64 ?? null,
+            SIGNED_AT: doc.SIGNED_AT ? new Date(doc.SIGNED_AT) : null,
+            DESCRIPTION: doc.DESCRIPTION ?? null,
+            STATE: doc.STATE ?? 'A',
+          }
+        )
+      } else {
+        const entity = this.studentDocumentRepository.create({
+          DOCUMENT_TYPE: doc.DOCUMENT_TYPE,
+          FILE_NAME: doc.FILE_NAME,
+          MIME_TYPE: doc.MIME_TYPE,
+          FILE_BASE64: doc.FILE_BASE64,
+          SIGNED_BASE64: doc.SIGNED_BASE64 ?? null,
+          SIGNED_AT: doc.SIGNED_AT ? new Date(doc.SIGNED_AT) : null,
+          DESCRIPTION: doc.DESCRIPTION ?? null,
+          STATE: doc.STATE ?? 'A',
+          CREATED_BY: createdBy,
+          STUDENT_ID: student.STUDENT_ID,
+        })
+
+        await manager.save(entity)
+      }
+    }
   }
 
   private async createReferences(
@@ -413,7 +554,6 @@ export class PersonService extends BaseService {
             p."NAME" || ' ' || p."LAST_NAME" || ' ' || p."IDENTITY_DOCUMENT" || ' ' || u."USERNAME" || ' ' || PHONE."VALUE" || ' ' || EMAIL."VALUE" AS "FILTER",
             U."USERNAME",
             U."USER_ID",
-            R."ROLE_ID",
             R."NAME" AS "ROLE_NAME",
             EMAIL."VALUE" AS "EMAIL",
             PHONE."VALUE" AS "PHONE"
@@ -431,6 +571,7 @@ export class PersonService extends BaseService {
             AND PHONE."TYPE" = 'phone'
         ) AS SUBQUERY
       ${whereClause}
+      ORDER BY "PERSON_ID"
     `
 
     const [data = [], metadata] = await paginatedQuery({
@@ -523,11 +664,22 @@ export class PersonService extends BaseService {
       },
     })
 
+    const studentDocuments = student
+      ? await this.studentDocumentRepository.find({
+          where: {
+            STUDENT_ID: student.STUDENT_ID,
+            STATE: 'A',
+          },
+          order: { CREATED_AT: 'DESC' },
+        })
+      : []
+
     const data = {
       ...person,
       REFERENCES: references ?? [],
       CONTACTS: contacts ?? [],
       STUDENT: student ?? {},
+      STUDENT_DOCUMENTS: studentDocuments,
     }
 
     return data

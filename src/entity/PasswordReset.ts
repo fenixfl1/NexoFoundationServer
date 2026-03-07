@@ -17,13 +17,13 @@ export class PasswordResetToken {
   @JoinColumn({ name: 'USER_ID' })
   USER: User
 
-  @Column()
+  @Column({ type: 'varchar' })
   TOKEN: string
 
   @Column({ type: 'timestamp' })
   EXPIRES_AT: Date
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
   CREATED_AT: Date
 }
 

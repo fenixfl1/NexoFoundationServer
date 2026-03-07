@@ -20,7 +20,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --watch src --exec ts-node --transpile-only -r tsconfig-paths/register src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start:prod": "node -r tsconfig-paths/register dist/index.js",
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.build.json && tsc-alias",
@@ -57,6 +57,7 @@
     "nodemon": "^3.1.10",
     "pg": "^8.14.1",
     "reflect-metadata": "^0.2.2",
+    "tsx": "^4.21.0",
     "typeorm": "0.3.25"
   },
   "devDependencies": {

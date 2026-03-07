@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { sendResponse } from '@src/helpers/response'
 import { ActivityService } from '../services/activity.service'
+import { extractPagination } from '@src/helpers/extract-pagination'
 
 const activityService = new ActivityService()
 
@@ -50,10 +51,10 @@ export const getActivityPaginationController = async (
   next: NextFunction
 ) => {
   try {
-    const result = await activityService.get_pagination(req.body, {
-      page: Number(req.query.page) || 1,
-      size: Number(req.query.size) || 20,
-    })
+    const result = await activityService.get_pagination(
+      req.body,
+      extractPagination(req.query)
+    )
     sendResponse(res, result)
   } catch (error) {
     next(error)

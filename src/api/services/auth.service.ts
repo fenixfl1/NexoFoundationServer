@@ -33,6 +33,8 @@ export class AuthService extends BaseService {
       relations: ['PERSON'],
     })
 
+    const business = await this.getBusinessInfo()
+
     const isPasswordValid = await bcrypt.compare(password, user?.PASSWORD || '')
     if (!isPasswordValid || !user) {
       throw new UnAuthorizedError('Usuario o contraseña incorrectos')
@@ -63,6 +65,7 @@ export class AuthService extends BaseService {
         roleId: user.PERSON.ROLE_ID,
         name: `${user.PERSON.NAME} ${user.PERSON.LAST_NAME}`,
         avatar: user.AVATAR,
+        business,
         sessionCookie: {
           expiration: this.getSessionExpirationDate(),
           token,

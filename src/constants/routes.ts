@@ -97,6 +97,12 @@ export const PATH_GET_STUDENT_REQUIREMENT = '/student_requirements/:id'
 
 export const PATH_GET_DASHBOARD_METRICS = '/dashboard/metrics'
 export const PATH_GET_DASHBOARD_ACTIVITY = '/dashboard/activity'
+export const PATH_RUN_OPERATIONAL_AUTOMATIONS = '/automation/operational/run'
+
+// Reportes
+export const PATH_GET_REPORT_CATALOG = '/reports/catalog'
+export const PATH_RUN_REPORT = '/reports/run/:key'
+export const PATH_EXPORT_REPORT = '/reports/export/:key'
 
 // Calificaciones / Índice académico
 export const PATH_CREATE_UPDATE_TERM = '/grades/terms'

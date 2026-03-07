@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { sendResponse } from '@src/helpers/response'
 import { TermService } from '../services/term.service'
+import { extractPagination } from '@src/helpers/extract-pagination'
 
 const termService = new TermService()
 
@@ -23,7 +24,7 @@ export const updateTermController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const result = await termService.update(req.body)
+    const result = await termService.update(req.body, req['sessionInfo'])
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -37,7 +38,7 @@ export const getTermController = async (
 ): Promise<void> => {
   try {
     const { id } = req.params
-    const result = await termService.get_term(Number(id))
+    const result = await termService.get_term(Number(id), req['sessionInfo'])
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -51,7 +52,10 @@ export const getTermsByStudentController = async (
 ): Promise<void> => {
   try {
     const { studentId } = req.params
-    const result = await termService.get_by_student(Number(studentId))
+    const result = await termService.get_by_student(
+      Number(studentId),
+      req['sessionInfo']
+    )
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -64,13 +68,10 @@ export const getTermPaginationController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { page, size } = req.query
     const result = await termService.get_pagination(
       req.body,
-      {
-        page: Number(page) || 1,
-        size: Number(size) || 20,
-      }
+      extractPagination(req.query),
+      req['sessionInfo']
     )
     sendResponse(res, result)
   } catch (error) {

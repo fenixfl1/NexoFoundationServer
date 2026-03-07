@@ -105,6 +105,8 @@ export abstract class BaseService {
       throw new NotFoundError(`Empresa no encontrada.`)
     }
 
+    business.LOGO = business.LOGO.toString()
+
     return business
   }
 

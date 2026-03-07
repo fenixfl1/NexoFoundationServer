@@ -9,7 +9,7 @@ import { Repository } from 'typeorm'
 import { FollowUp, FollowUpStatus } from '@src/entity/FollowUp'
 import { Student } from '@src/entity/Student'
 import { Appointment } from '@src/entity/Appointment'
-import { NotFoundError } from '@src/errors/http.error'
+import { ForbiddenError, NotFoundError } from '@src/errors/http.error'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
@@ -32,6 +32,7 @@ export class FollowUpService extends BaseService {
   private followUpRepository: Repository<FollowUp>
   private studentRepository: Repository<Student>
   private appointmentRepository: Repository<Appointment>
+  private readonly STUDENT_ROLE_ID = 3
 
   constructor() {
     super()
@@ -45,6 +46,7 @@ export class FollowUpService extends BaseService {
     payload: CreateFollowUpPayload,
     session: SessionInfo
   ): Promise<ApiResponse> {
+    await this.ensureCanManageFollowUps(session)
     await this.ensureRelations(payload)
 
     const followUp = this.followUpRepository.create({
@@ -72,8 +74,13 @@ export class FollowUpService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdateFollowUpPayload): Promise<ApiResponse> {
+  async update(
+    payload: UpdateFollowUpPayload,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const { FOLLOW_UP_ID, ...rest } = payload
+
+    await this.ensureCanManageFollowUps(session)
 
     const followUp = await this.followUpRepository.findOne({
       where: { FOLLOW_UP_ID },
@@ -116,9 +123,21 @@ export class FollowUpService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session?: SessionInfo
   ): Promise<ApiResponse> {
-    const { values, whereClause } = whereClauseBuilder(payload)
+    const scopedPayload = [...(payload ?? [])]
+    const studentId = await this.getLoggedStudentId(session)
+
+    if (studentId) {
+      scopedPayload.push({
+        field: 'STUDENT_ID',
+        operator: '=',
+        value: studentId,
+      })
+    }
+
+    const { values, whereClause } = whereClauseBuilder(scopedPayload)
 
     const statement = `
       SELECT
@@ -162,7 +181,10 @@ export class FollowUpService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_follow_up(followUpId: number): Promise<ApiResponse> {
+  async get_follow_up(
+    followUpId: number,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const statement = `
       SELECT
         f.*,
@@ -181,6 +203,13 @@ export class FollowUpService extends BaseService {
     const [record] = await queryRunner<FollowUp>(statement, [followUpId])
 
     if (!record) {
+      throw new NotFoundError(
+        `El seguimiento con identificador '${followUpId}' no existe.`
+      )
+    }
+
+    const studentId = await this.getLoggedStudentId(session)
+    if (studentId && record.STUDENT_ID !== studentId) {
       throw new NotFoundError(
         `El seguimiento con identificador '${followUpId}' no existe.`
       )
@@ -225,5 +254,68 @@ export class FollowUpService extends BaseService {
         NEXT_APPOINTMENT: nextAppointment,
       }
     )
+  }
+
+  private async getLoggedStudentId(
+    session?: SessionInfo
+  ): Promise<number | null> {
+    if (!session?.userId) return null
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!studentRole) return null
+
+    const user = await this.userRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        STATE: 'A',
+      },
+      select: ['USER_ID', 'PERSON_ID'],
+    })
+
+    if (!user?.PERSON_ID) {
+      throw new NotFoundError(
+        'No se encontró la persona asociada a la sesión actual.'
+      )
+    }
+
+    const student = await this.studentRepository.findOne({
+      where: { PERSON_ID: user.PERSON_ID },
+      select: ['STUDENT_ID'],
+    })
+
+    if (!student?.STUDENT_ID) {
+      throw new NotFoundError(
+        'No se encontró el becario asociado a la sesión actual.'
+      )
+    }
+
+    return student.STUDENT_ID
+  }
+
+  private async ensureCanManageFollowUps(
+    session?: SessionInfo
+  ): Promise<void> {
+    if (!session?.userId) return
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (studentRole) {
+      throw new ForbiddenError(
+        'No tiene permisos para registrar o editar seguimientos.'
+      )
+    }
   }
 }

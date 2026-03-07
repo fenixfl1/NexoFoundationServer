@@ -7,7 +7,7 @@ import {
 import { BaseService, CatchServiceError } from './base.service'
 import { Repository } from 'typeorm'
 import { Appointment, AppointmentStatus } from '@src/entity/Appointment'
-import { NotFoundError } from '@src/errors/http.error'
+import { ForbiddenError, NotFoundError } from '@src/errors/http.error'
 import { Student } from '@src/entity/Student'
 import { Request } from '@src/entity/Request'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
@@ -35,6 +35,7 @@ export class AppointmentService extends BaseService {
   private appointmentRepository: Repository<Appointment>
   private studentRepository: Repository<Student>
   private requestRepository: Repository<Request>
+  private readonly STUDENT_ROLE_ID = 3
 
   constructor() {
     super()
@@ -48,6 +49,7 @@ export class AppointmentService extends BaseService {
     payload: CreateAppointmentPayload,
     session: SessionInfo
   ): Promise<ApiResponse> {
+    await this.ensureCanManageAppointments(session)
     await this.ensureRelations(payload)
 
     const appointment = this.appointmentRepository.create({
@@ -67,8 +69,13 @@ export class AppointmentService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdateAppointmentPayload): Promise<ApiResponse> {
+  async update(
+    payload: UpdateAppointmentPayload,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const { APPOINTMENT_ID, ...rest } = payload
+
+    await this.ensureCanManageAppointments(session)
 
     const appointment = await this.appointmentRepository.findOne({
       where: { APPOINTMENT_ID },
@@ -104,9 +111,21 @@ export class AppointmentService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session?: SessionInfo
   ): Promise<ApiResponse> {
-    const { values, whereClause } = whereClauseBuilder(payload)
+    const scopedPayload = [...(payload ?? [])]
+    const studentPersonId = await this.getLoggedStudentPersonId(session)
+
+    if (studentPersonId) {
+      scopedPayload.push({
+        field: 'PERSON_ID',
+        operator: '=',
+        value: studentPersonId,
+      })
+    }
+
+    const { values, whereClause } = whereClauseBuilder(scopedPayload)
 
     const statement = `
       SELECT
@@ -153,7 +172,10 @@ export class AppointmentService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_appointment(appointmentId: number): Promise<ApiResponse> {
+  async get_appointment(
+    appointmentId: number,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const statement = `
       SELECT
         a.*,
@@ -175,7 +197,58 @@ export class AppointmentService extends BaseService {
       )
     }
 
+    const studentPersonId = await this.getLoggedStudentPersonId(session)
+    if (studentPersonId && appointment.PERSON_ID !== studentPersonId) {
+      throw new NotFoundError(
+        `La cita con identificador '${appointmentId}' no existe.`
+      )
+    }
+
     return this.success({ data: appointment })
+  }
+
+  private async getLoggedStudentPersonId(
+    session?: SessionInfo
+  ): Promise<number | null> {
+    if (!session?.userId) return null
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!studentRole) return null
+
+    const user = await this.userRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        STATE: 'A',
+      },
+      select: ['USER_ID', 'PERSON_ID'],
+    })
+
+    return user?.PERSON_ID ?? null
+  }
+
+  private async ensureCanManageAppointments(session?: SessionInfo): Promise<void> {
+    if (!session?.userId) return
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (studentRole) {
+      throw new ForbiddenError(
+        'No tiene permisos para registrar o editar citas.'
+      )
+    }
   }
 
   private async ensureRelations(

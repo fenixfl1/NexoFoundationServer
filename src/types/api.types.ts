@@ -54,7 +54,7 @@ export interface SimpleCondition<T = unknown> {
   orden?: Record<keyof T, 'ASC' | 'DESC'>
 }
 
-export interface AdvancedCondition<T = unknown> {
+export interface AdvancedCondition<T = any> {
   value: string | number | boolean | (string | number)[]
   field: keyof T | (keyof T)[]
   operator: string

@@ -9,7 +9,7 @@ import { Repository } from 'typeorm'
 import { Term } from '@src/entity/Term'
 import { CourseGrade } from '@src/entity/CourseGrade'
 import { Student } from '@src/entity/Student'
-import { NotFoundError } from '@src/errors/http.error'
+import { ForbiddenError, NotFoundError } from '@src/errors/http.error'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
@@ -39,6 +39,7 @@ export class TermService extends BaseService {
   private termRepository: Repository<Term>
   private courseRepository: Repository<CourseGrade>
   private studentRepository: Repository<Student>
+  private readonly STUDENT_ROLE_ID = 3
 
   constructor() {
     super()
@@ -52,6 +53,8 @@ export class TermService extends BaseService {
     payload: CreateTermPayload,
     session: SessionInfo
   ): Promise<ApiResponse> {
+    await this.ensureCanManageTerms(session)
+
     const studentId =
       payload.STUDENT_ID ?? (await this.resolveStudentIdFromSession(session))
 
@@ -84,8 +87,13 @@ export class TermService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdateTermPayload): Promise<ApiResponse> {
+  async update(
+    payload: UpdateTermPayload,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const { TERM_ID, COURSES, ...rest } = payload
+
+    await this.ensureCanManageTerms(session)
 
     const term = await this.termRepository.findOne({
       where: { TERM_ID },
@@ -127,7 +135,7 @@ export class TermService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_term(termId: number): Promise<ApiResponse> {
+  async get_term(termId: number, session?: SessionInfo): Promise<ApiResponse> {
     const term = await this.termRepository.findOne({
       where: { TERM_ID: termId },
       relations: ['COURSES', 'STUDENT'],
@@ -139,11 +147,28 @@ export class TermService extends BaseService {
       )
     }
 
+    const studentId = await this.getLoggedStudentId(session)
+    if (studentId && term.STUDENT_ID !== studentId) {
+      throw new NotFoundError(
+        `El cuatrimestre con id '${termId}' no fue encontrado.`
+      )
+    }
+
     return this.success({ data: term })
   }
 
   @CatchServiceError()
-  async get_by_student(studentId: number): Promise<ApiResponse> {
+  async get_by_student(
+    studentId: number,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
+    const loggedStudentId = await this.getLoggedStudentId(session)
+    if (loggedStudentId && loggedStudentId !== studentId) {
+      throw new NotFoundError(
+        `No se encontró información académica para el becario '${studentId}'.`
+      )
+    }
+
     const terms = await this.termRepository.find({
       where: { STUDENT_ID: studentId },
       relations: ['COURSES'],
@@ -160,9 +185,21 @@ export class TermService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session?: SessionInfo
   ): Promise<ApiResponse> {
-    const { values, whereClause } = whereClauseBuilder(payload)
+    const scopedPayload = [...(payload ?? [])]
+    const studentId = await this.getLoggedStudentId(session)
+
+    if (studentId) {
+      scopedPayload.push({
+        field: 'STUDENT_ID',
+        operator: '=',
+        value: studentId,
+      })
+    }
+
+    const { values, whereClause } = whereClauseBuilder(scopedPayload)
 
     const statement = `
       SELECT
@@ -296,5 +333,41 @@ export class TermService extends BaseService {
     }
 
     return student.STUDENT_ID
+  }
+
+  private async getLoggedStudentId(
+    session?: SessionInfo
+  ): Promise<number | null> {
+    if (!session?.userId) return null
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!studentRole) return null
+
+    return this.resolveStudentIdFromSession(session)
+  }
+
+  private async ensureCanManageTerms(session?: SessionInfo): Promise<void> {
+    if (!session?.userId) return
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (studentRole) {
+      throw new ForbiddenError(
+        'No tiene permisos para registrar o editar calificaciones.'
+      )
+    }
   }
 }

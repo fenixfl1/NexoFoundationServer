@@ -1,3 +1,4 @@
+import 'reflect-metadata'
 // import '@helpers/generate-index'
 import express from 'express'
 import cors from 'cors'
@@ -10,6 +11,7 @@ import routes from './api/routes'
 import { errorHandler } from './api/middlewares/error.middleware'
 import { startConsumer } from './api/services/email/email-consumer.service'
 import { startNotificationDispatcher } from './jobs/notification-dispatcher'
+import { startOperationalAutomationDispatcher } from './jobs/operational-automation-dispatcher'
 
 const start = performance.now()
 
@@ -46,4 +48,5 @@ async function init() {
 init().then(async () => {
   await startConsumer()
   startNotificationDispatcher()
+  startOperationalAutomationDispatcher()
 })

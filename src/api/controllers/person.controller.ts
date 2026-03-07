@@ -27,7 +27,7 @@ export const updatePersonController = async (
   next: NextFunction
 ) => {
   try {
-    const result = await personService.update(req.body)
+    const result = await personService.update(req.body, req['sessionInfo'])
 
     sendResponse(res, result)
   } catch (error) {

@@ -24,7 +24,7 @@ export const updateAppointmentController = async (
   next: NextFunction
 ) => {
   try {
-    const result = await appointmentService.update(req.body)
+    const result = await appointmentService.update(req.body, req['sessionInfo'])
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -39,7 +39,8 @@ export const getAppointmentPaginationController = async (
   try {
     const result = await appointmentService.get_pagination(
       req.body,
-      extractPagination(req.query)
+      extractPagination(req.query),
+      req['sessionInfo']
     )
     sendResponse(res, result)
   } catch (error) {
@@ -54,7 +55,10 @@ export const getAppointmentController = async (
 ) => {
   try {
     const { id } = req.params
-    const result = await appointmentService.get_appointment(Number(id))
+    const result = await appointmentService.get_appointment(
+      Number(id),
+      req['sessionInfo']
+    )
     sendResponse(res, result)
   } catch (error) {
     next(error)
