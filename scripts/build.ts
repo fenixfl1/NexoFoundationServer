@@ -1,21 +1,16 @@
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-import fs from 'fs-extra'
-import path from 'path'
-import { fileURLToPath } from "url";
+var fs = require('fs')
+var path = require('path')
 
-// Convierte import.meta.url a ruta de archivo
-const __filename = fileURLToPath(import.meta.url);
+try {
+  const buildPath = path.join(__dirname, '../build')
 
-// Obtiene el directorio que contiene el archivo
-const __dirname = path.dirname(__filename);
-
-// Ahora puedes usar __dirname normalmente
-const distPath = path.join(__dirname, "dist");
-console.log(distPath);
-
-
-  if (fs.existsSync(distPath)) {
-    fs.removeSync(distPath)
+  if (fs.existsSync(buildPath)) {
+    fs.rmSync(buildPath, { recursive: true, force: true })
   }
-
-  console.log('✅ Carpeta dist limpia')
+} catch (error) {
+  console.error('details:', error)
+  process.exit(1)
+}
