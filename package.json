@@ -23,7 +23,7 @@
     "dev": "tsx watch src/index.ts",
     "start:prod": "node -r tsconfig-paths/register dist/index.js",
     "start": "node dist/index.js",
-    "build": "tsc -p tsconfig.build.json && tsc-alias",
+    "build": "ts-node scripts/esbuild.ts",
     "lint": "eslint src/**/*.{ts,tsx}",
     "format": "prettier --write './src/**/*.{ts,tsx,js,json}'",
     "typeorm": "typeorm-ts-node-commonjs",
