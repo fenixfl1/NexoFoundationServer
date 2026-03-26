@@ -1,22 +1,21 @@
+import { EntityManager, Repository } from 'typeorm'
+import { BaseService, CatchServiceError } from './base.service'
+import { publishEmailToQueue } from './email/email-producer.service'
 import {
   AdvancedCondition,
   ApiResponse,
   Pagination,
   SessionInfo,
 } from '@src/types/api.types'
-import { BaseService, CatchServiceError } from './base.service'
 import { Contact, ContactType, ContactUsage } from '@src/entity/Contact'
 import { Reference } from '@src/entity/Reference'
 import { Student } from '@src/entity/Student'
 import { StudentDocument } from '@src/entity/StudentDocument'
-import { EntityManager, Repository } from 'typeorm'
 import { generatePassword } from '@src/helpers/generate-password'
-import { publishEmailToQueue } from './email/email-producer.service'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
 import { UserRoles } from '@src/entity/RolesUser'
-import { queryBuilder } from '../../helpers/query-builder'
 import { NotFoundError } from '@src/errors/http.error'
 import { Person } from '@src/entity/Person'
 import { Sponsor } from '@src/entity'
@@ -497,7 +496,7 @@ export class PersonService extends BaseService {
   @CatchServiceError()
   async updateReference(
     payload: ReferenceUpdatePayload,
-    session: SessionInfo
+    _session: SessionInfo
   ): Promise<ApiResponse<Reference>> {
     const { REFERENCE_ID, PERSON_ID, ...rest } = payload
 
@@ -685,8 +684,8 @@ export class PersonService extends BaseService {
     return data
   }
 
-  private async createReference(
-    payload: Reference[],
-    manager?: EntityManager
-  ) {}
+  // private async createReference(
+  //   payload: Reference[],
+  //   manager?: EntityManager
+  // ) {}
 }

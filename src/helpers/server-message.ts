@@ -14,13 +14,13 @@ function getLocalIP() {
   return '127.0.0.1'
 }
 
-export function serverMessage(time: string) {
+export function serverMessage(time: string, rabbitConnected = false) {
   const message = `
 ${chalk.bold.green('Serving!')}
   - Local:   ${chalk.cyan(`http://localhost:${process.env.APP_PORT}`)}
   - Network: ${chalk.cyan(`http://${getLocalIP()}:${process.env.APP_PORT}`)}
 
-  - RabbitMQ connected!
+  - RabbitMQ: ${rabbitConnected ? chalk.green('connected') : chalk.yellow('disabled / unavailable')}
 
   ${chalk.gray(`- Server ready in ${time}`)}
 `

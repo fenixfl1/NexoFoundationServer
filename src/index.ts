@@ -37,16 +37,25 @@ async function init() {
     const server = http.createServer(app)
 
     server.listen(process.env.APP_PORT)
-
-    serverMessage(`${(performance.now() - start).toFixed(2)} ms`)
+    return server
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(' 💥 Something went wrong: ', error)
+    return null
   }
 }
 
-init().then(async () => {
-  await startConsumer()
+async function bootstrap() {
+  const server = await init()
+  if (!server) return
+
+  const rabbitConnected = await startConsumer()
   startNotificationDispatcher()
   startOperationalAutomationDispatcher()
+
+  serverMessage(`${(performance.now() - start).toFixed(2)} ms`, rabbitConnected)
+}
+
+bootstrap().catch((error) => {
+  console.error(' 💥 Error durante el arranque: ', error)
 })
