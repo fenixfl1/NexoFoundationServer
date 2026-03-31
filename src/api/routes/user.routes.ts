@@ -1,11 +1,11 @@
 import { Router } from 'express'
 import { validateSchema } from '../middlewares/validator-middleware'
-import { advancedConditionSchema } from '@src/api/validators/advanced-condition.schema'
 import {
   changePasswordController,
   getPaginatedUserController,
   updateUserController,
 } from '../controllers/user.controller'
+import { advancedConditionSchema } from '@src/api/validators/advanced-condition.schema'
 import {
   PATH_CHANGE_USER_PASSWORD,
   PATH_CREATE_UPDATE_USER,
