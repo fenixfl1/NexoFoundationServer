@@ -1,10 +1,10 @@
 import * as bcrypt from 'bcrypt'
+import { BaseService, CatchServiceError } from './base.service'
 import {
   AdvancedCondition,
   ApiResponse,
   Pagination,
 } from '@src/types/api.types'
-import { BaseService, CatchServiceError } from './base.service'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { paginatedQuery } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
