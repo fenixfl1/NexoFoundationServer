@@ -14,6 +14,16 @@ export const createRequestSchema = Joi.object({
   NOTES: Joi.string().optional().allow(null, ''),
 })
 
-export const updateRequestSchema = createRequestSchema.keys({
+export const updateRequestSchema = Joi.object({
   REQUEST_ID: Joi.number().integer().required(),
+  PERSON_ID: Joi.number().integer().optional(),
+  STUDENT_ID: Joi.number().integer().optional().allow(null),
+  REQUEST_TYPE: Joi.string().max(100).optional(),
+  STATUS: Joi.string()
+    .valid(...Object.values(RequestStatus))
+    .optional(),
+  ASSIGNED_COORDINATOR: Joi.string().max(150).optional().allow(null, ''),
+  NEXT_APPOINTMENT: Joi.date().iso().optional().allow(null),
+  COHORT: Joi.string().max(100).optional().allow(null, ''),
+  NOTES: Joi.string().optional().allow(null, ''),
 })

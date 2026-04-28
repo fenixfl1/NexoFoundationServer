@@ -7,10 +7,20 @@ import { BaseService, CatchServiceError } from './base.service'
 
 type ReportKey =
   | 'REQUEST_STATUS_SUMMARY'
+  | 'REQUEST_TYPE_COHORT'
+  | 'STUDENT_DIRECTORY'
   | 'DOCUMENT_COMPLETENESS'
   | 'DISBURSEMENT_EXECUTION'
 
 type ReportFilterType = 'text' | 'date' | 'select'
+type ReportColumnFormat =
+  | 'text'
+  | 'date'
+  | 'datetime'
+  | 'currency'
+  | 'percentage'
+  | 'number'
+  | 'document'
 
 interface ReportFilterOption {
   label: string
@@ -22,7 +32,16 @@ interface ReportFilterDefinition {
   label: string
   type: ReportFilterType
   multiple?: boolean
+  catalog?: string
   options?: ReportFilterOption[]
+}
+
+interface ReportColumnDefinition {
+  key: string
+  label: string
+  format?: ReportColumnFormat
+  catalog?: string
+  hidden?: boolean
 }
 
 interface ReportDefinition {
@@ -31,6 +50,8 @@ interface ReportDefinition {
   DESCRIPTION: string
   MODULE: string
   FILTERS: ReportFilterDefinition[]
+  COLUMNS: ReportColumnDefinition[]
+  SUMMARY_LABELS?: Record<string, string>
 }
 
 interface ReportRunPayload {
@@ -72,6 +93,21 @@ interface DisbursementSummaryRow {
   TOTAL_VARIANCE: number
 }
 
+interface RequestTypeCohortSummaryRow {
+  GROUPS: number
+  TOTAL_REQUESTS: number
+  PENDING: number
+  APPROVED: number
+  REJECTED: number
+}
+
+interface StudentDirectorySummaryRow {
+  TOTAL_STUDENTS: number
+  UNIVERSITIES: number
+  CAREERS: number
+  AVG_ACADEMIC_AVERAGE: number
+}
+
 const REPORT_CATALOG: ReportDefinition[] = [
   {
     KEY: 'REQUEST_STATUS_SUMMARY',
@@ -87,6 +123,7 @@ const REPORT_CATALOG: ReportDefinition[] = [
         label: 'Estado',
         type: 'select',
         multiple: true,
+        catalog: 'ID_LIST_REQUEST_STATUS',
         options: [
           { label: 'Pendiente', value: 'P' },
           { label: 'En revisión', value: 'R' },
@@ -95,10 +132,145 @@ const REPORT_CATALOG: ReportDefinition[] = [
           { label: 'Cita programada', value: 'C' },
         ],
       },
-      { key: 'REQUEST_TYPE', label: 'Tipo de solicitud', type: 'text' },
-      { key: 'UNIVERSITY', label: 'Universidad', type: 'text' },
-      { key: 'COHORT', label: 'Cohorte', type: 'text' },
+      {
+        key: 'REQUEST_TYPE',
+        label: 'Tipo de solicitud',
+        type: 'select',
+        catalog: 'ID_LIST_REQUEST_TYPES',
+      },
+      {
+        key: 'UNIVERSITY',
+        label: 'Universidad',
+        type: 'select',
+        catalog: 'ID_LIST_UNIVERSITIES',
+      },
+      {
+        key: 'COHORT',
+        label: 'Cohorte',
+        type: 'select',
+        catalog: 'ID_LIST_COHORTS',
+      },
     ],
+    COLUMNS: [
+      { key: 'REQUEST_ID', label: 'Código', format: 'number' },
+      { key: 'CREATED_AT', label: 'Fecha de solicitud', format: 'datetime' },
+      {
+        key: 'REQUEST_TYPE',
+        label: 'Tipo de solicitud',
+        catalog: 'ID_LIST_REQUEST_TYPES',
+      },
+      {
+        key: 'STATUS',
+        label: 'Estado',
+        catalog: 'ID_LIST_REQUEST_STATUS',
+      },
+      { key: 'COHORT', label: 'Cohorte' },
+      { key: 'NAME', label: 'Nombre' },
+      { key: 'LAST_NAME', label: 'Apellido' },
+      { key: 'IDENTITY_DOCUMENT', label: 'Documento', format: 'document' },
+      { key: 'UNIVERSITY', label: 'Universidad' },
+      { key: 'CAREER', label: 'Carrera' },
+    ],
+    SUMMARY_LABELS: {
+      P: 'Pendientes',
+      R: 'En revisión',
+      A: 'Aprobadas',
+      D: 'Rechazadas',
+      C: 'Cita programada',
+      TOTAL: 'Total',
+    },
+  },
+  {
+    KEY: 'REQUEST_TYPE_COHORT',
+    NAME: 'Solicitudes por tipo y cohorte',
+    DESCRIPTION:
+      'Cantidad de solicitudes agrupadas por tipo, cohorte, universidad y estado.',
+    MODULE: 'Solicitudes',
+    FILTERS: [
+      { key: 'DATE_FROM', label: 'Fecha desde', type: 'date' },
+      { key: 'DATE_TO', label: 'Fecha hasta', type: 'date' },
+      {
+        key: 'UNIVERSITY',
+        label: 'Universidad',
+        type: 'select',
+        catalog: 'ID_LIST_UNIVERSITIES',
+      },
+      {
+        key: 'COHORT',
+        label: 'Cohorte',
+        type: 'select',
+        catalog: 'ID_LIST_COHORTS',
+      },
+    ],
+    COLUMNS: [
+      {
+        key: 'REQUEST_TYPE',
+        label: 'Tipo de solicitud',
+        catalog: 'ID_LIST_REQUEST_TYPES',
+      },
+      { key: 'COHORT', label: 'Cohorte' },
+      { key: 'UNIVERSITY', label: 'Universidad' },
+      { key: 'PENDING', label: 'Pendientes', format: 'number' },
+      { key: 'IN_REVIEW', label: 'En revisión', format: 'number' },
+      { key: 'APPROVED', label: 'Aprobadas', format: 'number' },
+      { key: 'REJECTED', label: 'Rechazadas', format: 'number' },
+      { key: 'SCHEDULED', label: 'Cita programada', format: 'number' },
+      { key: 'TOTAL', label: 'Total', format: 'number' },
+    ],
+    SUMMARY_LABELS: {
+      GROUPS: 'Grupos',
+      TOTAL_REQUESTS: 'Solicitudes',
+      PENDING: 'Pendientes',
+      APPROVED: 'Aprobadas',
+      REJECTED: 'Rechazadas',
+    },
+  },
+  {
+    KEY: 'STUDENT_DIRECTORY',
+    NAME: 'Becarios por institución',
+    DESCRIPTION:
+      'Listado de becarios con universidad, carrera, cohorte, promedio y horas de voluntariado.',
+    MODULE: 'Estudiantes',
+    FILTERS: [
+      {
+        key: 'UNIVERSITY',
+        label: 'Universidad',
+        type: 'select',
+        catalog: 'ID_LIST_UNIVERSITIES',
+      },
+      {
+        key: 'CAREER',
+        label: 'Carrera',
+        type: 'select',
+        catalog: 'ID_LIST_CAREERS',
+      },
+      {
+        key: 'COHORT',
+        label: 'Cohorte',
+        type: 'select',
+        catalog: 'ID_LIST_COHORTS',
+      },
+    ],
+    COLUMNS: [
+      { key: 'STUDENT_ID', label: 'Código', format: 'number' },
+      { key: 'NAME', label: 'Nombre' },
+      { key: 'LAST_NAME', label: 'Apellido' },
+      { key: 'IDENTITY_DOCUMENT', label: 'Documento', format: 'document' },
+      { key: 'UNIVERSITY', label: 'Universidad' },
+      { key: 'CAREER', label: 'Carrera' },
+      { key: 'COHORT', label: 'Cohorte' },
+      { key: 'SCHOLARSHIP_STATUS', label: 'Estado de beca' },
+      { key: 'ACADEMIC_AVERAGE', label: 'Promedio', format: 'number' },
+      { key: 'HOURS_COMPLETED', label: 'Horas completadas', format: 'number' },
+      { key: 'HOURS_REQUIRED', label: 'Horas requeridas', format: 'number' },
+      { key: 'NEXT_APPOINTMENT', label: 'Próxima cita', format: 'date' },
+    ],
+    SUMMARY_LABELS: {
+      TOTAL_STUDENTS: 'Becarios',
+      UNIVERSITIES: 'Universidades',
+      CAREERS: 'Carreras',
+      AVG_ACADEMIC_AVERAGE: 'Promedio general',
+    },
   },
   {
     KEY: 'DOCUMENT_COMPLETENESS',
@@ -107,9 +279,38 @@ const REPORT_CATALOG: ReportDefinition[] = [
       'Nivel de cumplimiento de documentos requeridos por estudiante.',
     MODULE: 'Documentación',
     FILTERS: [
-      { key: 'UNIVERSITY', label: 'Universidad', type: 'text' },
-      { key: 'COHORT', label: 'Cohorte', type: 'text' },
+      {
+        key: 'UNIVERSITY',
+        label: 'Universidad',
+        type: 'select',
+        catalog: 'ID_LIST_UNIVERSITIES',
+      },
+      {
+        key: 'COHORT',
+        label: 'Cohorte',
+        type: 'select',
+        catalog: 'ID_LIST_COHORTS',
+      },
     ],
+    COLUMNS: [
+      { key: 'STUDENT_ID', label: 'Código', format: 'number' },
+      { key: 'NAME', label: 'Nombre' },
+      { key: 'LAST_NAME', label: 'Apellido' },
+      { key: 'IDENTITY_DOCUMENT', label: 'Documento', format: 'document' },
+      { key: 'UNIVERSITY', label: 'Universidad' },
+      { key: 'CAREER', label: 'Carrera' },
+      { key: 'COHORT', label: 'Cohorte' },
+      { key: 'REQUIRED_DOCS', label: 'Requeridos', format: 'number' },
+      { key: 'UPLOADED_DOCS', label: 'Entregados', format: 'number' },
+      { key: 'MISSING_DOCS', label: 'Pendientes', format: 'number' },
+      { key: 'COMPLETENESS_PCT', label: 'Completitud', format: 'percentage' },
+    ],
+    SUMMARY_LABELS: {
+      TOTAL_STUDENTS: 'Becarios',
+      COMPLETE_STUDENTS: 'Completos',
+      INCOMPLETE_STUDENTS: 'Incompletos',
+      AVG_COMPLETENESS: 'Promedio de completitud',
+    },
   },
   {
     KEY: 'DISBURSEMENT_EXECUTION',
@@ -121,9 +322,38 @@ const REPORT_CATALOG: ReportDefinition[] = [
       { key: 'DATE_FROM', label: 'Fecha desde', type: 'date' },
       { key: 'DATE_TO', label: 'Fecha hasta', type: 'date' },
       { key: 'PERIOD', label: 'Período (YYYY-MM)', type: 'text' },
-      { key: 'UNIVERSITY', label: 'Universidad', type: 'text' },
-      { key: 'COHORT', label: 'Cohorte', type: 'text' },
+      {
+        key: 'UNIVERSITY',
+        label: 'Universidad',
+        type: 'select',
+        catalog: 'ID_LIST_UNIVERSITIES',
+      },
+      {
+        key: 'COHORT',
+        label: 'Cohorte',
+        type: 'select',
+        catalog: 'ID_LIST_COHORTS',
+      },
     ],
+    COLUMNS: [
+      { key: 'PERIOD', label: 'Período' },
+      { key: 'UNIVERSITY', label: 'Universidad' },
+      { key: 'BUDGET_AMOUNT', label: 'Presupuesto', format: 'currency' },
+      { key: 'DISBURSED_AMOUNT', label: 'Desembolsado', format: 'currency' },
+      {
+        key: 'DISBURSEMENT_COUNT',
+        label: 'Cantidad de desembolsos',
+        format: 'number',
+      },
+      { key: 'VARIANCE_AMOUNT', label: 'Diferencia', format: 'currency' },
+      { key: 'EXECUTION_PCT', label: 'Ejecución', format: 'percentage' },
+    ],
+    SUMMARY_LABELS: {
+      ROWS: 'Períodos',
+      TOTAL_BUDGET: 'Presupuesto',
+      TOTAL_DISBURSED: 'Desembolsado',
+      TOTAL_VARIANCE: 'Diferencia',
+    },
   },
 ]
 
@@ -150,7 +380,11 @@ export class ReportService extends BaseService {
   ): Promise<ApiResponse> {
     const report = this.findReport(key)
     const scope = await this.getScope(session)
-    const config = this.buildReportQuery(report.KEY, payload?.filters ?? {}, scope)
+    const config = this.buildReportQuery(
+      report.KEY,
+      payload?.filters ?? {},
+      scope
+    )
 
     const [data, metadata] = await paginatedQuery({
       statement: config.statement,
@@ -186,7 +420,11 @@ export class ReportService extends BaseService {
   ): Promise<ApiResponse> {
     const report = this.findReport(key)
     const scope = await this.getScope(session)
-    const config = this.buildReportQuery(report.KEY, payload?.filters ?? {}, scope)
+    const config = this.buildReportQuery(
+      report.KEY,
+      payload?.filters ?? {},
+      scope
+    )
     const rows = await queryRunner(config.statement, config.values)
 
     const summaryRows = config.summaryStatement
@@ -230,6 +468,10 @@ export class ReportService extends BaseService {
     switch (key) {
       case 'REQUEST_STATUS_SUMMARY':
         return this.buildRequestStatusQuery(filters, scope)
+      case 'REQUEST_TYPE_COHORT':
+        return this.buildRequestTypeCohortQuery(filters, scope)
+      case 'STUDENT_DIRECTORY':
+        return this.buildStudentDirectoryQuery(filters, scope)
       case 'DOCUMENT_COMPLETENESS':
         return this.buildDocumentCompletenessQuery(filters, scope)
       case 'DISBURSEMENT_EXECUTION':
@@ -331,6 +573,172 @@ export class ReportService extends BaseService {
           COUNT(*)::INTEGER AS "COUNT"
         FROM (${baseStatement}) AS report
         GROUP BY report."STATUS"
+      `,
+      summaryValues: values,
+    }
+  }
+
+  private buildRequestTypeCohortQuery(
+    filters: Record<string, unknown>,
+    scope: Scope
+  ): QueryConfig {
+    const values: unknown[] = []
+    const where: string[] = [`r."STATE" = 'A'`, `p."STATE" = 'A'`]
+    const add = (value: unknown) => {
+      values.push(value)
+      return `$${values.length}`
+    }
+
+    const dateFrom = this.toString(filters.DATE_FROM)
+    const dateTo = this.toString(filters.DATE_TO)
+    const university = this.toString(filters.UNIVERSITY)
+    const cohort = this.toString(filters.COHORT)
+
+    if (dateFrom) {
+      const placeholder = add(dateFrom)
+      where.push(`r."CREATED_AT"::date >= ${placeholder}::date`)
+    }
+
+    if (dateTo) {
+      const placeholder = add(dateTo)
+      where.push(`r."CREATED_AT"::date <= ${placeholder}::date`)
+    }
+
+    if (university) {
+      const placeholder = add(`%${university}%`)
+      where.push(`COALESCE(s."UNIVERSITY", '') ILIKE ${placeholder}`)
+    }
+
+    if (cohort) {
+      const placeholder = add(`%${cohort}%`)
+      where.push(`COALESCE(r."COHORT", '') ILIKE ${placeholder}`)
+    }
+
+    if (scope.personId) {
+      const placeholder = add(scope.personId)
+      where.push(`r."PERSON_ID" = ${placeholder}`)
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+    const baseStatement = `
+      SELECT
+        r."REQUEST_TYPE",
+        COALESCE(r."COHORT", 'Sin cohorte') AS "COHORT",
+        COALESCE(s."UNIVERSITY", 'Sin asignar') AS "UNIVERSITY",
+        SUM(CASE WHEN r."STATUS" = 'P' THEN 1 ELSE 0 END)::INTEGER AS "PENDING",
+        SUM(CASE WHEN r."STATUS" = 'R' THEN 1 ELSE 0 END)::INTEGER AS "IN_REVIEW",
+        SUM(CASE WHEN r."STATUS" = 'A' THEN 1 ELSE 0 END)::INTEGER AS "APPROVED",
+        SUM(CASE WHEN r."STATUS" = 'D' THEN 1 ELSE 0 END)::INTEGER AS "REJECTED",
+        SUM(CASE WHEN r."STATUS" = 'C' THEN 1 ELSE 0 END)::INTEGER AS "SCHEDULED",
+        COUNT(*)::INTEGER AS "TOTAL",
+        (
+          COALESCE(r."REQUEST_TYPE", '') || ' ' ||
+          COALESCE(r."COHORT", '') || ' ' ||
+          COALESCE(s."UNIVERSITY", '')
+        ) AS "FILTER"
+      FROM PUBLIC."REQUEST" r
+      INNER JOIN PUBLIC."PERSON" p ON p."PERSON_ID" = r."PERSON_ID"
+      LEFT JOIN PUBLIC."STUDENT" s ON s."STUDENT_ID" = r."STUDENT_ID"
+      ${whereClause}
+      GROUP BY r."REQUEST_TYPE", COALESCE(r."COHORT", 'Sin cohorte'), COALESCE(s."UNIVERSITY", 'Sin asignar')
+    `
+
+    return {
+      statement: `
+        ${baseStatement}
+        ORDER BY "TOTAL" DESC, "REQUEST_TYPE" ASC, "COHORT" ASC
+      `,
+      values,
+      summaryStatement: `
+        SELECT
+          COUNT(*)::INTEGER AS "GROUPS",
+          COALESCE(SUM(report."TOTAL"), 0)::INTEGER AS "TOTAL_REQUESTS",
+          COALESCE(SUM(report."PENDING"), 0)::INTEGER AS "PENDING",
+          COALESCE(SUM(report."APPROVED"), 0)::INTEGER AS "APPROVED",
+          COALESCE(SUM(report."REJECTED"), 0)::INTEGER AS "REJECTED"
+        FROM (${baseStatement}) AS report
+      `,
+      summaryValues: values,
+    }
+  }
+
+  private buildStudentDirectoryQuery(
+    filters: Record<string, unknown>,
+    scope: Scope
+  ): QueryConfig {
+    const values: unknown[] = []
+    const where: string[] = [`s."STATE" = 'A'`, `p."STATE" = 'A'`]
+    const add = (value: unknown) => {
+      values.push(value)
+      return `$${values.length}`
+    }
+
+    const university = this.toString(filters.UNIVERSITY)
+    const career = this.toString(filters.CAREER)
+    const cohort = this.toString(filters.COHORT)
+
+    if (university) {
+      const placeholder = add(`%${university}%`)
+      where.push(`COALESCE(s."UNIVERSITY", '') ILIKE ${placeholder}`)
+    }
+
+    if (career) {
+      const placeholder = add(`%${career}%`)
+      where.push(`COALESCE(s."CAREER", '') ILIKE ${placeholder}`)
+    }
+
+    if (cohort) {
+      const placeholder = add(`%${cohort}%`)
+      where.push(`COALESCE(s."COHORT", '') ILIKE ${placeholder}`)
+    }
+
+    if (scope.studentId) {
+      const placeholder = add(scope.studentId)
+      where.push(`s."STUDENT_ID" = ${placeholder}`)
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+    const baseStatement = `
+      SELECT
+        s."STUDENT_ID",
+        p."NAME",
+        p."LAST_NAME",
+        p."IDENTITY_DOCUMENT",
+        COALESCE(s."UNIVERSITY", '') AS "UNIVERSITY",
+        COALESCE(s."CAREER", '') AS "CAREER",
+        COALESCE(s."COHORT", '') AS "COHORT",
+        s."SCHOLARSHIP_STATUS",
+        s."ACADEMIC_AVERAGE",
+        s."HOURS_COMPLETED",
+        s."HOURS_REQUIRED",
+        s."NEXT_APPOINTMENT",
+        (
+          p."NAME" || ' ' || COALESCE(p."LAST_NAME", '') || ' ' ||
+          COALESCE(p."IDENTITY_DOCUMENT", '') || ' ' ||
+          COALESCE(s."UNIVERSITY", '') || ' ' ||
+          COALESCE(s."CAREER", '') || ' ' ||
+          COALESCE(s."COHORT", '')
+        ) AS "FILTER"
+      FROM PUBLIC."STUDENT" s
+      INNER JOIN PUBLIC."PERSON" p ON p."PERSON_ID" = s."PERSON_ID"
+      ${whereClause}
+    `
+
+    return {
+      statement: `
+        ${baseStatement}
+        ORDER BY "UNIVERSITY" ASC, "CAREER" ASC, "LAST_NAME" ASC
+      `,
+      values,
+      summaryStatement: `
+        SELECT
+          COUNT(*)::INTEGER AS "TOTAL_STUDENTS",
+          COUNT(DISTINCT NULLIF(report."UNIVERSITY", ''))::INTEGER AS "UNIVERSITIES",
+          COUNT(DISTINCT NULLIF(report."CAREER", ''))::INTEGER AS "CAREERS",
+          COALESCE(ROUND(AVG(report."ACADEMIC_AVERAGE")::numeric, 2), 0) AS "AVG_ACADEMIC_AVERAGE"
+        FROM (${baseStatement}) AS report
       `,
       summaryValues: values,
     }
@@ -500,7 +908,9 @@ export class ReportService extends BaseService {
 
     if (university) {
       const budgetPlaceholder = add(`%${university}%`)
-      budgetWhere.push(`COALESCE(st_budget."UNIVERSITY", '') ILIKE ${budgetPlaceholder}`)
+      budgetWhere.push(
+        `COALESCE(st_budget."UNIVERSITY", '') ILIKE ${budgetPlaceholder}`
+      )
       const disbursementPlaceholder = add(`%${university}%`)
       disbursementWhere.push(
         `COALESCE(st_disb."UNIVERSITY", '') ILIKE ${disbursementPlaceholder}`
@@ -509,9 +919,13 @@ export class ReportService extends BaseService {
 
     if (cohort) {
       const budgetPlaceholder = add(`%${cohort}%`)
-      budgetWhere.push(`COALESCE(st_budget."COHORT", '') ILIKE ${budgetPlaceholder}`)
+      budgetWhere.push(
+        `COALESCE(st_budget."COHORT", '') ILIKE ${budgetPlaceholder}`
+      )
       const disbursementPlaceholder = add(`%${cohort}%`)
-      disbursementWhere.push(`COALESCE(st_disb."COHORT", '') ILIKE ${disbursementPlaceholder}`)
+      disbursementWhere.push(
+        `COALESCE(st_disb."COHORT", '') ILIKE ${disbursementPlaceholder}`
+      )
     }
 
     if (scope.studentId) {
@@ -638,6 +1052,27 @@ export class ReportService extends BaseService {
         COMPLETE_STUDENTS: Number(row?.COMPLETE_STUDENTS ?? 0),
         INCOMPLETE_STUDENTS: Number(row?.INCOMPLETE_STUDENTS ?? 0),
         AVG_COMPLETENESS: Number(row?.AVG_COMPLETENESS ?? 0),
+      }
+    }
+
+    if (key === 'REQUEST_TYPE_COHORT') {
+      const [row] = (summaryRows || []) as RequestTypeCohortSummaryRow[]
+      return {
+        GROUPS: Number(row?.GROUPS ?? 0),
+        TOTAL_REQUESTS: Number(row?.TOTAL_REQUESTS ?? 0),
+        PENDING: Number(row?.PENDING ?? 0),
+        APPROVED: Number(row?.APPROVED ?? 0),
+        REJECTED: Number(row?.REJECTED ?? 0),
+      }
+    }
+
+    if (key === 'STUDENT_DIRECTORY') {
+      const [row] = (summaryRows || []) as StudentDirectorySummaryRow[]
+      return {
+        TOTAL_STUDENTS: Number(row?.TOTAL_STUDENTS ?? 0),
+        UNIVERSITIES: Number(row?.UNIVERSITIES ?? 0),
+        CAREERS: Number(row?.CAREERS ?? 0),
+        AVG_ACADEMIC_AVERAGE: Number(row?.AVG_ACADEMIC_AVERAGE ?? 0),
       }
     }
 
