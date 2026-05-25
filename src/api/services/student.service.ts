@@ -138,6 +138,7 @@ export class StudentService extends BaseService {
       FROM (
         SELECT
           s."STUDENT_ID",
+          s."CREATED_AT",
           s."PERSON_ID",
           s."UNIVERSITY",
           s."CAREER",
@@ -152,6 +153,9 @@ export class StudentService extends BaseService {
           s."SCORE",
           p."NAME",
           p."LAST_NAME",
+          p."BIRTH_DATE",
+          p."DOCUMENT_TYPE",
+          p."GENDER",
           p."IDENTITY_DOCUMENT",
           p."STATE",
           COALESCE(email."VALUE", '') AS "CONTACT_EMAIL",
@@ -223,6 +227,9 @@ export class StudentService extends BaseService {
         s.*,
         p."NAME",
         p."LAST_NAME",
+        p."BIRTH_DATE",
+        p."DOCUMENT_TYPE",
+        p."GENDER",
         p."IDENTITY_DOCUMENT",
         COALESCE(email."VALUE", '') AS "CONTACT_EMAIL",
         COALESCE(phone."VALUE", '') AS "CONTACT_PHONE"
@@ -247,6 +254,255 @@ export class StudentService extends BaseService {
       )
     }
 
-    return this.success({ data: student })
+    const [
+      terms,
+      documents,
+      requirements,
+      requests,
+      followUps,
+      scholarships,
+      disbursements,
+      activities,
+    ] = await Promise.all([
+      this.getStudentTerms(studentId),
+      this.getStudentDocuments(studentId),
+      this.getStudentRequirements(studentId),
+      this.getStudentRequests(studentId, student.PERSON_ID),
+      this.getStudentFollowUps(studentId),
+      this.getStudentScholarships(studentId),
+      this.getStudentDisbursements(studentId),
+      this.getStudentActivities(studentId),
+    ])
+
+    const totalDisbursed = disbursements.reduce(
+      (sum, item) => sum + Number(item.AMOUNT ?? 0),
+      0
+    )
+    const completedActivities = activities.filter(
+      (item) => item.STATUS === 'completed'
+    ).length
+    const completedRequirements = requirements.filter(
+      (item) => item.STATUS === 'A'
+    ).length
+
+    return this.success({
+      data: {
+        ...student,
+        TERMS: terms,
+        DOCUMENTS: documents,
+        REQUIREMENTS: requirements,
+        REQUESTS: requests,
+        FOLLOW_UPS: followUps,
+        SCHOLARSHIPS: scholarships,
+        DISBURSEMENTS: disbursements,
+        ACTIVITIES: activities,
+        EXPEDIENT_SUMMARY: {
+          TERMS_COUNT: terms.length,
+          DOCUMENTS_COUNT: documents.length,
+          REQUIREMENTS_COUNT: requirements.length,
+          REQUIREMENTS_COMPLETED: completedRequirements,
+          REQUESTS_COUNT: requests.length,
+          FOLLOW_UPS_COUNT: followUps.length,
+          SCHOLARSHIPS_COUNT: scholarships.length,
+          DISBURSEMENTS_COUNT: disbursements.length,
+          TOTAL_DISBURSED: totalDisbursed,
+          ACTIVITIES_COUNT: activities.length,
+          ACTIVITIES_COMPLETED: completedActivities,
+        },
+      },
+    })
+  }
+
+  private async getStudentTerms(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          t."TERM_ID",
+          t."PERIOD",
+          t."TERM_INDEX",
+          t."TOTAL_CREDITS",
+          t."OBSERVATIONS",
+          t."CAPTURE_FILE_NAME",
+          t."CREATED_AT",
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'COURSE_GRADE_ID', cg."COURSE_GRADE_ID",
+                'COURSE_NAME', cg."COURSE_NAME",
+                'GRADE', cg."GRADE",
+                'CREDITS', cg."CREDITS",
+                'STATUS', cg."STATUS"
+              )
+              ORDER BY cg."COURSE_GRADE_ID"
+            ) FILTER (WHERE cg."COURSE_GRADE_ID" IS NOT NULL),
+            '[]'::json
+          ) AS "COURSES"
+        FROM PUBLIC."TERM" t
+        LEFT JOIN PUBLIC."COURSE_GRADE" cg ON cg."TERM_ID" = t."TERM_ID"
+        WHERE t."STUDENT_ID" = $1
+        GROUP BY t."TERM_ID"
+        ORDER BY t."CREATED_AT" DESC, t."TERM_ID" DESC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentDocuments(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          d."DOCUMENT_ID",
+          d."DOCUMENT_TYPE",
+          d."FILE_NAME",
+          d."MIME_TYPE",
+          d."SIGNED_AT",
+          d."DESCRIPTION",
+          d."STATE",
+          d."CREATED_AT"
+        FROM PUBLIC."STUDENT_DOCUMENT" d
+        WHERE d."STUDENT_ID" = $1
+        ORDER BY d."CREATED_AT" DESC, d."DOCUMENT_ID" DESC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentRequirements(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          sr."STUDENT_REQUIREMENT_ID",
+          sr."REQUIREMENT_ID",
+          sr."STATUS",
+          sr."OBSERVATION",
+          sr."VALIDATED_BY",
+          sr."VALIDATED_AT",
+          sr."STATE",
+          sr."CREATED_AT",
+          r."REQUIREMENT_KEY",
+          r."NAME" AS "REQUIREMENT_NAME",
+          r."DESCRIPTION" AS "REQUIREMENT_DESCRIPTION",
+          r."IS_REQUIRED"
+        FROM PUBLIC."STUDENT_REQUIREMENT" sr
+        INNER JOIN PUBLIC."REQUIREMENT" r
+          ON r."REQUIREMENT_ID" = sr."REQUIREMENT_ID"
+        WHERE sr."STUDENT_ID" = $1
+        ORDER BY r."IS_REQUIRED" DESC, r."NAME" ASC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentRequests(studentId: number, personId: number) {
+    return queryRunner(
+      `
+        SELECT
+          r."REQUEST_ID",
+          r."REQUEST_TYPE",
+          r."STATUS",
+          r."ASSIGNED_COORDINATOR",
+          r."NEXT_APPOINTMENT",
+          r."COHORT",
+          r."NOTES",
+          r."CREATED_AT"
+        FROM PUBLIC."REQUEST" r
+        WHERE r."STUDENT_ID" = $1 OR r."PERSON_ID" = $2
+        ORDER BY r."CREATED_AT" DESC, r."REQUEST_ID" DESC
+      `,
+      [studentId, personId]
+    )
+  }
+
+  private async getStudentFollowUps(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          f."FOLLOW_UP_ID",
+          f."APPOINTMENT_ID",
+          f."FOLLOW_UP_DATE",
+          f."SUMMARY",
+          f."NOTES",
+          f."NEXT_APPOINTMENT",
+          f."STATUS",
+          f."STATE",
+          f."CREATED_AT"
+        FROM PUBLIC."FOLLOW_UP" f
+        WHERE f."STUDENT_ID" = $1
+        ORDER BY f."FOLLOW_UP_DATE" DESC, f."FOLLOW_UP_ID" DESC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentScholarships(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          sc."SCHOLARSHIP_ID",
+          sc."REQUEST_ID",
+          sc."NAME",
+          sc."DESCRIPTION",
+          sc."AMOUNT",
+          sc."START_DATE",
+          sc."END_DATE",
+          sc."PERIOD_TYPE",
+          sc."STATUS",
+          sc."STATE",
+          sc."CREATED_AT"
+        FROM PUBLIC."SCHOLARSHIP" sc
+        WHERE sc."STUDENT_ID" = $1
+        ORDER BY sc."START_DATE" DESC, sc."SCHOLARSHIP_ID" DESC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentDisbursements(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          d."DISBURSEMENT_ID",
+          d."SCHOLARSHIP_ID",
+          sc."NAME" AS "SCHOLARSHIP_NAME",
+          d."AMOUNT",
+          d."DISBURSEMENT_DATE",
+          d."METHOD",
+          d."REFERENCE",
+          d."STATUS",
+          d."NOTES",
+          d."STATE",
+          d."CREATED_AT"
+        FROM PUBLIC."DISBURSEMENT" d
+        INNER JOIN PUBLIC."SCHOLARSHIP" sc
+          ON sc."SCHOLARSHIP_ID" = d."SCHOLARSHIP_ID"
+        WHERE sc."STUDENT_ID" = $1
+        ORDER BY d."DISBURSEMENT_DATE" DESC, d."DISBURSEMENT_ID" DESC
+      `,
+      [studentId]
+    )
+  }
+
+  private async getStudentActivities(studentId: number) {
+    return queryRunner(
+      `
+        SELECT
+          ap."PARTICIPANT_ID",
+          ap."ACTIVITY_ID",
+          a."TITLE",
+          a."START_AT",
+          a."END_AT",
+          a."LOCATION",
+          a."HOURS",
+          ap."HOURS_EARNED",
+          ap."STATUS",
+          ap."ATTENDED_AT",
+          ap."CREATED_AT"
+        FROM PUBLIC."ACTIVITY_PARTICIPANT" ap
+        INNER JOIN PUBLIC."ACTIVITY" a ON a."ACTIVITY_ID" = ap."ACTIVITY_ID"
+        WHERE ap."STUDENT_ID" = $1
+        ORDER BY a."START_AT" DESC, ap."PARTICIPANT_ID" DESC
+      `,
+      [studentId]
+    )
   }
 }
