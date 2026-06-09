@@ -1,17 +1,17 @@
+import { randomBytes } from 'node:crypto'
 import * as bcrypt from 'bcrypt'
 import * as jwt from 'jsonwebtoken'
 import ms from 'ms'
-import { BadRequestError, UnAuthorizedError } from '@src/errors/http.error'
-import { BaseService, CatchServiceError } from './base.service'
 import moment from 'moment'
-import { normalizeUnit } from '@src/helpers/normalize-unit'
-import { publishEmailToQueue } from './email/email-producer.service'
-import PasswordResetToken from '@src/entity/PasswordReset'
 import { Repository } from 'typeorm'
-import { randomBytes } from 'node:crypto'
+import { BaseService, CatchServiceError } from './base.service'
+import { publishEmailToQueue } from './email/email-producer.service'
+import { BadRequestError, UnAuthorizedError } from '@src/errors/http.error'
+import { normalizeUnit } from '@src/helpers/normalize-unit'
+import PasswordResetToken from '@src/entity/PasswordReset'
 import { ApiResponse } from '@src/types/api.types'
 import { generatePassword } from '@src/helpers/generate-password'
-import { Contact, ContactType } from '@src/entity'
+import { ContactType } from '@src/entity'
 
 interface LoginPayload {
   username: string
@@ -33,9 +33,14 @@ export class AuthService extends BaseService {
       relations: ['PERSON'],
     })
 
+    if (!user) {
+      throw new UnAuthorizedError('Usuario no encontrado')
+    }
+
     const business = await this.getBusinessInfo()
 
     const isPasswordValid = await bcrypt.compare(password, user?.PASSWORD || '')
+
     if (!isPasswordValid || !user) {
       throw new UnAuthorizedError('Usuario o contraseña incorrectos')
     }
@@ -154,24 +159,26 @@ export class AuthService extends BaseService {
     user.PASSWORD = hash
 
     const mainContact = person.CONTACTS.find(
-      (c) => c.STATE === ContactType.EMAIL && c.IS_PRIMARY
+      (c) => c.TYPE === ContactType.EMAIL && c.IS_PRIMARY
     )
 
     await this.userRepository.save(user)
     await this.resetPasswordRepository.delete(tokenRecord)
 
-    await publishEmailToQueue({
-      to: mainContact.VALUE,
-      subject: 'Recuperación de contraseña',
-      templateName: 'password-changed',
-      text: '',
-      record: {
-        name: `${person.NAME} ${person.LAST_NAME}`,
-        business,
-        url: `${process.env.APP_URL}/login`,
-        year: new Date().getFullYear(),
-      },
-    })
+    if (mainContact) {
+      await publishEmailToQueue({
+        to: mainContact.VALUE,
+        subject: 'Recuperación de contraseña',
+        templateName: 'password-changed',
+        text: '',
+        record: {
+          name: `${person.NAME} ${person.LAST_NAME}`,
+          business,
+          url: `${process.env.APP_URL}/login`,
+          year: new Date().getFullYear(),
+        },
+      })
+    }
 
     return this.success({
       message:

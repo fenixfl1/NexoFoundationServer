@@ -24,7 +24,7 @@ export const updateRequestController = async (
   next: NextFunction
 ) => {
   try {
-    const result = await requestService.update(req.body)
+    const result = await requestService.update(req.body, req['sessionInfo'])
     sendResponse(res, result)
   } catch (error) {
     next(error)
@@ -56,7 +56,10 @@ export const getRequestController = async (
 ) => {
   try {
     const { id } = req.params
-    const result = await requestService.get_request(Number(id), req['sessionInfo'])
+    const result = await requestService.get_request(
+      Number(id),
+      req['sessionInfo']
+    )
 
     sendResponse(res, result)
   } catch (error) {

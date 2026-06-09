@@ -13,6 +13,7 @@ import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { paginatedQuery } from '@src/helpers/query-utils'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
 import { PermissionRole } from '@src/entity/PermissionRole'
+import { Permission } from '@src/entity/Permission'
 
 interface PermissionPayload {
   ROLE: Role
@@ -21,6 +22,11 @@ interface PermissionPayload {
 
 interface CreateRolePayload extends Role {
   PERMISSIONS: number[]
+}
+
+interface UpdateRolePayload extends Partial<Role> {
+  ROLE_ID: number
+  PERMISSIONS?: number[]
 }
 
 export class RoleService extends BaseService {
@@ -75,8 +81,11 @@ export class RoleService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: Role, session: SessionInfo): Promise<ApiResponse> {
-    const { ROLE_ID, ...restProps } = payload
+  async update(
+    payload: UpdateRolePayload,
+    session: SessionInfo
+  ): Promise<ApiResponse> {
+    const { ROLE_ID, PERMISSIONS, ...restProps } = payload
 
     const role = await this.roleRepository.findOneBy({ ROLE_ID })
 
@@ -84,7 +93,38 @@ export class RoleService extends BaseService {
       throw new NotFoundError(`Rol con id '${ROLE_ID}' no existe.`)
     }
 
-    await this.roleRepository.update({ ROLE_ID }, { ...restProps })
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Role, { ROLE_ID }, { ...restProps })
+
+      if (!Array.isArray(PERMISSIONS)) return
+
+      const permissions = [...new Set(PERMISSIONS)]
+
+      if (permissions.length) {
+        const existingPermissions = await manager.count(Permission, {
+          where: { PERMISSION_ID: In(permissions) },
+        })
+
+        if (existingPermissions !== permissions.length) {
+          throw new NotFoundError('Uno o más permisos no existen.')
+        }
+      }
+
+      await manager.delete(PermissionRole, { ROLE_ID })
+
+      if (!permissions.length) return
+
+      const rolePermissions = permissions.map((permissionId) =>
+        manager.create(PermissionRole, {
+          PERMISSION_ID: permissionId,
+          ROLE_ID,
+          CREATED_BY: session?.userId,
+          STATE: 'A',
+        })
+      )
+
+      await manager.save(rolePermissions)
+    })
 
     return this.success({ message: 'Rol actualizado exitosamente.' })
   }

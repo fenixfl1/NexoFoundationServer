@@ -7,7 +7,7 @@ import {
 import { BaseService, CatchServiceError } from './base.service'
 import { Repository } from 'typeorm'
 import { Request, RequestStatus } from '@src/entity/Request'
-import { NotFoundError } from '@src/errors/http.error'
+import { ForbiddenError, NotFoundError } from '@src/errors/http.error'
 import { whereClauseBuilder } from '@src/helpers/where-clause-builder'
 import { HTTP_STATUS_NO_CONTENT } from '@src/constants/status-codes'
 import { paginatedQuery, queryRunner } from '@src/helpers/query-utils'
@@ -86,8 +86,16 @@ export class RequestService extends BaseService {
   }
 
   @CatchServiceError()
-  async update(payload: UpdateRequestPayload): Promise<ApiResponse> {
+  async update(
+    payload: UpdateRequestPayload,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const { REQUEST_ID, STUDENT_ID, ...rest } = payload
+    const studentPersonId = await this.getLoggedStudentPersonId(session)
+
+    if (studentPersonId) {
+      throw new ForbiddenError('Los estudiantes no pueden editar solicitudes.')
+    }
 
     const request = await this.requestRepository.findOne({
       where: { REQUEST_ID },
@@ -236,7 +244,10 @@ export class RequestService extends BaseService {
   }
 
   @CatchServiceError()
-  async get_request(requestId: number, session?: SessionInfo): Promise<ApiResponse> {
+  async get_request(
+    requestId: number,
+    session?: SessionInfo
+  ): Promise<ApiResponse> {
     const statement = `
       SELECT
         r.*,

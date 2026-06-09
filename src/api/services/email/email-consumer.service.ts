@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import amqp from 'amqplib'
 import EmailService from './email.service'
 
@@ -7,7 +8,9 @@ export async function startConsumer() {
   const rabbitUrl = process.env.RABBITMQ_URL
 
   if (!rabbitUrl) {
-    console.warn('⚠️  RabbitMQ no configurado. Se omite el consumer de correos.')
+    console.warn(
+      '⚠️  RabbitMQ no configurado. Se omite el consumer de correos.'
+    )
     return false
   }
 
@@ -40,7 +43,6 @@ export async function startConsumer() {
       }
     })
 
-    console.log('✅ RabbitMQ conectado. Consumer de correos iniciado.')
     return true
   } catch (error) {
     console.error(

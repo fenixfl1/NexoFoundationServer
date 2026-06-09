@@ -1,11 +1,37 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class AcademicInfoMenuOption1777000000000
-  implements MigrationInterface
-{
+export class AcademicInfoMenuOption1777000000000 implements MigrationInterface {
   name = 'AcademicInfoMenuOption1777000000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      INSERT INTO "ROLE" (
+        "ROLE_ID",
+        "CREATED_AT",
+        "CREATED_BY",
+        "STATE",
+        "NAME",
+        "DESCRIPTION"
+      )
+      VALUES
+        (1, NOW(), NULL, 'A', 'Administrador', 'Acceso administrativo del sistema'),
+        (2, NOW(), NULL, 'A', 'Patrocinador', 'Perfil de patrocinador'),
+        (3, NOW(), NULL, 'A', 'Estudiante', 'Perfil de becario/estudiante')
+      ON CONFLICT ("ROLE_ID") DO UPDATE
+      SET
+        "NAME" = EXCLUDED."NAME",
+        "DESCRIPTION" = EXCLUDED."DESCRIPTION",
+        "STATE" = 'A'
+    `)
+
+    await queryRunner.query(`
+      SELECT setval(
+        pg_get_serial_sequence('"ROLE"', 'ROLE_ID'),
+        GREATEST((SELECT COALESCE(MAX("ROLE_ID"), 1) FROM "ROLE"), 1),
+        TRUE
+      )
+    `)
+
     await queryRunner.query(`
       INSERT INTO "ACTION" (
         "CREATED_AT",
@@ -25,6 +51,42 @@ export class AcademicInfoMenuOption1777000000000
         FROM "ACTION"
         WHERE UPPER("NAME") = 'VIEW'
       )
+    `)
+
+    await queryRunner.query(`
+      INSERT INTO "MENU_OPTION" (
+        "CREATED_AT",
+        "CREATED_BY",
+        "STATE",
+        "MENU_OPTION_ID",
+        "NAME",
+        "DESCRIPTION",
+        "PATH",
+        "TYPE",
+        "ICON",
+        "ORDER",
+        "PARENT_ID"
+      )
+      VALUES (
+        NOW(),
+        NULL,
+        'A',
+        '0-5',
+        'Becarios',
+        'Gestión de becarios',
+        NULL,
+        'group',
+        NULL,
+        5,
+        NULL
+      )
+      ON CONFLICT ("MENU_OPTION_ID") DO UPDATE
+      SET
+        "NAME" = EXCLUDED."NAME",
+        "DESCRIPTION" = EXCLUDED."DESCRIPTION",
+        "TYPE" = EXCLUDED."TYPE",
+        "ORDER" = EXCLUDED."ORDER",
+        "STATE" = 'A'
     `)
 
     await queryRunner.query(`

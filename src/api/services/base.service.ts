@@ -95,17 +95,25 @@ export abstract class BaseService {
     select?: (keyof Business)[]
   ): Promise<Business> {
     const business = await this.businessRepository.findOne({
-      select,
+      // select,
       where: {
         STATE: 'A',
       },
     })
 
     if (!business) {
-      throw new NotFoundError(`Empresa no encontrada.`)
+      return {
+        BUSINESS_ID: 0,
+        NAME: process.env.APP_NAME ?? 'Nexo Fundación',
+        LOGO: '',
+        RNC: '',
+        PHONE: '',
+        ADDRESS: '',
+        STATE: 'A',
+      }
     }
 
-    business.LOGO = business.LOGO.toString()
+    business.LOGO = business.LOGO?.toString?.() ?? ''
 
     return business
   }
@@ -118,7 +126,7 @@ export abstract class BaseService {
       relations = null,
       searchKey = 'USERNAME',
       throwError = true,
-    } = options
+    } = options ?? {}
 
     const user = await this.userRepository.findOne({
       relations,
