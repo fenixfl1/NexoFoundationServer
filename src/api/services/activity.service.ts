@@ -34,7 +34,7 @@ interface UpdateActivityPayload extends Partial<CreateActivityPayload> {
 
 interface EnrollPayload {
   ACTIVITY_ID: number
-  STUDENT_ID: number
+  STUDENT_ID?: number
 }
 
 interface UpdateParticipantPayload {
@@ -47,6 +47,7 @@ export class ActivityService extends BaseService {
   private activityRepository: Repository<Activity>
   private participantRepository: Repository<ActivityParticipant>
   private studentRepository: Repository<Student>
+  private readonly STUDENT_ROLE_ID = 3
 
   constructor() {
     super()
@@ -118,9 +119,28 @@ export class ActivityService extends BaseService {
   @CatchServiceError()
   async get_pagination(
     payload: AdvancedCondition[],
-    pagination: Pagination
+    pagination: Pagination,
+    session?: SessionInfo
   ): Promise<ApiResponse> {
     const { values, whereClause } = whereClauseBuilder(payload)
+    const studentId = await this.getStudentIdForSession(session)
+    const queryValues = [...values]
+    const enrollmentStatusSelect = studentId
+      ? `
+        EXISTS (
+          SELECT 1
+          FROM "ACTIVITY_PARTICIPANT" sap
+          WHERE sap."ACTIVITY_ID" = a."ACTIVITY_ID"
+            AND sap."STUDENT_ID" = $${queryValues.length + 1}
+        ) AS "IS_ENROLLED",
+      `
+      : `
+        FALSE AS "IS_ENROLLED",
+      `
+
+    if (studentId) {
+      queryValues.push(studentId)
+    }
 
     const statement = `
       SELECT
@@ -133,6 +153,7 @@ export class ActivityService extends BaseService {
         a."HOURS",
         a."CAPACITY",
         a."STATUS",
+        ${enrollmentStatusSelect}
         (
           SELECT COUNT(*)::INTEGER
           FROM "ACTIVITY_PARTICIPANT" ap
@@ -150,7 +171,7 @@ export class ActivityService extends BaseService {
 
     const [data, metadata] = await paginatedQuery<any>({
       statement,
-      values,
+      values: queryValues,
       pagination,
     })
 
@@ -169,6 +190,13 @@ export class ActivityService extends BaseService {
     payload: EnrollPayload,
     session: SessionInfo
   ): Promise<ApiResponse> {
+    const loggedStudentId = await this.getStudentIdForSession(session)
+    const studentId = loggedStudentId ?? payload.STUDENT_ID
+
+    if (!studentId) {
+      throw new BadRequestError('Debe seleccionar el becario a inscribir.')
+    }
+
     const activity = await this.activityRepository.findOne({
       where: { ACTIVITY_ID: payload.ACTIVITY_ID },
     })
@@ -178,12 +206,12 @@ export class ActivityService extends BaseService {
       )
     }
 
-    await this.ensureStudent(payload.STUDENT_ID)
+    await this.ensureStudent(studentId)
 
     const existing = await this.participantRepository.findOne({
       where: {
         ACTIVITY_ID: payload.ACTIVITY_ID,
-        STUDENT_ID: payload.STUDENT_ID,
+        STUDENT_ID: studentId,
       },
     })
 
@@ -193,6 +221,7 @@ export class ActivityService extends BaseService {
 
     const participant = this.participantRepository.create({
       ...payload,
+      STUDENT_ID: studentId,
       HOURS_EARNED: Number(activity.HOURS) || 0,
       CREATED_BY: session.userId,
     })
@@ -221,7 +250,10 @@ export class ActivityService extends BaseService {
 
     const nextStatus = payload.STATUS
     const hoursEarned =
-      payload.HOURS_EARNED ?? participant.HOURS_EARNED ?? participant.ACTIVITY?.HOURS ?? 0
+      payload.HOURS_EARNED ??
+      participant.HOURS_EARNED ??
+      participant.ACTIVITY?.HOURS ??
+      0
 
     const wasCompleted = participant.STATUS === ParticipantStatus.COMPLETED
     const willBeCompleted = nextStatus === ParticipantStatus.COMPLETED
@@ -262,5 +294,46 @@ export class ActivityService extends BaseService {
       })
       .where('"STUDENT_ID" = :studentId', { studentId })
       .execute()
+  }
+
+  private async getStudentIdForSession(
+    session?: SessionInfo
+  ): Promise<number | null> {
+    if (!session?.userId) return null
+
+    const studentRole = await this.userRolesRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        ROLE_ID: this.STUDENT_ROLE_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!studentRole) return null
+
+    const user = await this.userRepository.findOne({
+      where: {
+        USER_ID: session.userId,
+        STATE: 'A',
+      },
+      select: ['USER_ID', 'PERSON_ID'],
+    })
+
+    if (!user) {
+      throw new NotFoundError('Usuario no encontrado.')
+    }
+
+    const student = await this.studentRepository.findOne({
+      where: {
+        PERSON_ID: user.PERSON_ID,
+        STATE: 'A',
+      },
+    })
+
+    if (!student) {
+      throw new NotFoundError('Becario no encontrado para el usuario actual.')
+    }
+
+    return student.STUDENT_ID
   }
 }

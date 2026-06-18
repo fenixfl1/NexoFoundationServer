@@ -53,7 +53,8 @@ export const getActivityPaginationController = async (
   try {
     const result = await activityService.get_pagination(
       req.body,
-      extractPagination(req.query)
+      extractPagination(req.query),
+      req['sessionInfo']
     )
     sendResponse(res, result)
   } catch (error) {

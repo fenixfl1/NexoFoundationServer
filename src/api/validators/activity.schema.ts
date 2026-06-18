@@ -21,7 +21,7 @@ export const updateActivitySchema = createActivitySchema.keys({
 
 export const enrollActivitySchema = Joi.object({
   ACTIVITY_ID: Joi.number().integer().required(),
-  STUDENT_ID: Joi.number().integer().required(),
+  STUDENT_ID: Joi.number().integer().optional(),
 })
 
 export const updateParticipantSchema = Joi.object({
